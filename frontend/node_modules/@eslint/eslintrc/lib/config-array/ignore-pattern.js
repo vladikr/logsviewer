@@ -27,17 +27,16 @@
  *
  * @author Toru Nagashima <https://github.com/mysticatea>
  */
+"use strict";
 
 //------------------------------------------------------------------------------
 // Requirements
 //------------------------------------------------------------------------------
 
-import assert from "assert";
-import path from "path";
-import ignore from "ignore";
-import debugOrig from "debug";
-
-const debug = debugOrig("eslintrc:ignore-pattern");
+const assert = require("assert");
+const path = require("path");
+const ignore = require("ignore");
+const debug = require("debug")("eslintrc:ignore-pattern");
 
 /** @typedef {ReturnType<import("ignore").default>} Ignore */
 
@@ -156,8 +155,8 @@ class IgnorePattern {
         const patterns = [].concat(
             ...ignorePatterns.map(p => p.getPatternsRelativeTo(basePath))
         );
-        const ig = ignore({ allowRelativePaths: true }).add([...DotPatterns, ...patterns]);
-        const dotIg = ignore({ allowRelativePaths: true }).add(patterns);
+        const ig = ignore().add([...DotPatterns, ...patterns]);
+        const dotIg = ignore().add(patterns);
 
         debug("  processed: %o", { basePath, patterns });
 
@@ -235,4 +234,4 @@ class IgnorePattern {
     }
 }
 
-export { IgnorePattern };
+module.exports = { IgnorePattern };

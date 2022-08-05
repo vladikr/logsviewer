@@ -1,0 +1,26 @@
+@tailwind base;
+
+/* Write your own custom base styles here */
+
+/* Start purging... */
+@tailwind components;
+/* Stop purging. */
+
+/* Write you own custom component styles here */
+
+.ease-in-animation {
+  @apply transition duration-500 ease-in-out;
+}
+
+/* Start purging... */
+@tailwind utilities;
+/* Stop purging. */
+
+/* Your own custom utilities */
+
+@media (min-width: 1024px) {
+  .btn-menu {
+    display: none;
+    position: relative;
+  }
+}
