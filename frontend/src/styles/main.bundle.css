@@ -613,72 +613,6 @@ video {
 
 /* Write you own custom component styles here */
 
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 20;
-  display: block;
-  transition-property: opacity;
-  --bg-opacity: 1;
-  background-color: #000;
-  background-color: rgba(0, 0, 0, var(--bg-opacity));
-  opacity: 0.5;
-}
-
-.sidebar {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 30;
-  width: 16rem;
-  overflow-y: auto;
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-duration: 300ms;
-  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  --transform-translate-x: 0;
-  --transform-translate-y: 0;
-  --transform-rotate: 0;
-  --transform-skew-x: 0;
-  --transform-skew-y: 0;
-  --transform-scale-x: 1;
-  --transform-scale-y: 1;
-  transform: translateX(var(--transform-translate-x)) translateY(var(--transform-translate-y)) rotate(var(--transform-rotate)) skewX(var(--transform-skew-x)) skewY(var(--transform-skew-y)) scaleX(var(--transform-scale-x)) scaleY(var(--transform-scale-y));
-  --transform-translate-x: 0;
-  --bg-opacity: 1;
-  background-color: #fff;
-  background-color: rgba(255, 255, 255, var(--bg-opacity));
-  border-right-width: 2px;
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 2.5rem;
-    span {
-      margin-left: 0.5rem;
-      margin-right: 0.5rem;
-      font-size: 1.5rem;
-      font-weight: 600;
-      --text-opacity: 1;
-      color: #000;
-      color: rgba(0, 0, 0, var(--text-opacity));
-    }
-  }
-  nav {
-    margin-top: 2.5rem;
-  }
-  .footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    margin-top: 2rem;
-    margin-bottom: 2rem;
-  }
-}
-
 .ease-in-animation {
   transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
   transition-duration: 500ms;
@@ -1854,8 +1788,7 @@ video {
 }
 
 .appearance-none {
-  -webkit-appearance: none;
-          appearance: none;
+  appearance: none;
 }
 
 .bg-fixed {
@@ -19286,6 +19219,13 @@ video {
 
 /* Your own custom utilities */
 
+@media (min-width: 1024px) {
+  .btn-menu {
+    display: none;
+    position: relative;
+  }
+}
+
 @media (min-width: 640px) {
   .sm\:container {
     width: 100%;
@@ -20482,8 +20422,7 @@ video {
   }
 
   .sm\:appearance-none {
-    -webkit-appearance: none;
-            appearance: none;
+    appearance: none;
   }
 
   .sm\:bg-fixed {
@@ -39076,8 +39015,7 @@ video {
   }
 
   .md\:appearance-none {
-    -webkit-appearance: none;
-            appearance: none;
+    appearance: none;
   }
 
   .md\:bg-fixed {
@@ -57670,8 +57608,7 @@ video {
   }
 
   .lg\:appearance-none {
-    -webkit-appearance: none;
-            appearance: none;
+    appearance: none;
   }
 
   .lg\:bg-fixed {
@@ -76264,8 +76201,7 @@ video {
   }
 
   .xl\:appearance-none {
-    -webkit-appearance: none;
-            appearance: none;
+    appearance: none;
   }
 
   .xl\:bg-fixed {
