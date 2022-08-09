@@ -3,7 +3,6 @@ package main
 import (
     "net/http"
     "flag"
-    "fmt"
     "os"
 
     . "logsviewer/pkg/backend"

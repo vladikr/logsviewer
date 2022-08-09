@@ -6,6 +6,7 @@ import (
     "net/http"
     "io"
     "os"
+    "encoding/json"
 
     "github.com/gorilla/websocket"
 )
@@ -14,13 +15,13 @@ import (
 // this will require a Read and Write buffer size
 var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
-  WriteBufferSize: 1024,
+    WriteBufferSize: 1024,
 
-  // We'll need to check the origin of our connection
-  // this will allow us to make requests from our React
-  // development server to here.
-  // For now, we'll do no checking and just allow any connection
-  CheckOrigin: func(r *http.Request) bool { return true },
+    // We'll need to check the origin of our connection
+    // this will allow us to make requests from our React
+    // development server to here.
+    // For now, we'll do no checking and just allow any connection
+    CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 // define a reader which will listen for
@@ -71,6 +72,7 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     // the Header and the size of the file
     file, handler, err := r.FormFile("file")
     if err != nil {
+	http.Error(w, err.Error(), http.StatusInternalServerError)
         fmt.Println("Error Retrieving the File")
         fmt.Println(err)
         return
@@ -81,13 +83,15 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Printf("MIME Header: %+v\n", handler.Header)
 
 
-    err = os.MkdirAll("/tmp/uploads", os.ModePerm)
+    // TODO: make this path configurable
+    err = os.MkdirAll("/space", os.ModePerm)
     if err != nil {
-        fmt.Println(err)
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 	return
     }
 
-    dst, err := os.Create(fmt.Sprintf("/tmp/uploads/%s", handler.Filename))
+    destinationFilePath := fmt.Sprintf("/space/%s", handler.Filename)
+    dst, err := os.Create(destinationFilePath)
     if err != nil {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 	return
@@ -104,6 +108,17 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     }
 
     fmt.Fprintf(w, "Successfully Uploaded File\n")
+    fmt.Println("Successfully Uploaded File: ", handler.Filename)
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+    json.NewEncoder(w).Encode(map[string]interface{}{
+       "success":     true,
+       "description": "Successfully Uploaded File",
+    })
+
+    mime := handler.Header.Get("Content-Type")
+    if mime == "application/gzip" {
+	    go handleTarGz(w, destinationFilePath, "/space")
+    }
 }
 
 func SetupRoutes(publicDir string) *http.ServeMux {
