@@ -13,8 +13,8 @@ spec:
     port: 4000
     targetPort: 4000
   - name: "ui"
-    port: 3000
-    targetPort: 3000
+    port: 8080
+    targetPort: 8080
   selector:
     app.kubernetes.io/name: logsviewer
 ---
@@ -22,70 +22,70 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: logstash-configmap
-
 data:
   logstash.yml: |
     http.host: "0.0.0.0"
     path.config: /usr/share/logstash/pipeline
-logstash.conf: |
+  logstash.conf: |
     input {
-	    file {
-		    mode => "read"   
-		    path => ["/space/**/*.log"]            
-		    codec => json
-		    type => "CNVLogs"
-		    file_completed_action => log_and_delete
-		    file_completed_log_path => "/tmp/processed.log"
-	    }
+      file {
+        mode => "read"   
+        path => ["/space/**/*.log"]            
+        codec => json
+        type => "CNVLogs"
+        file_completed_action => log_and_delete
+        file_completed_log_path => "/tmp/processed.log"
+      }
     }
     filter {
-	    mutate {
-		    gsub => [
-			    "message", "^[^{]*{", "{"
-		    ]
-	    }
-	    ruby {
-		    code => '
-			    path = event.get("[log][file][path]")
-			    parts = path.split(File::SEPARATOR)
-			    event.set("podName", parts[-5])
-			    event.set("containerName", parts[-4])
-			    event.set("namespace", parts[-7])
-			    event.set("key", sprintf("%s/%s", parts[-7], parts[-5]))
-		    '
-	    }
+      mutate {
+        gsub => [
+          "message", "^[^{]*{", "{"
+        ]
+      }
+      ruby {
+        code => '
+          path = event.get("[log][file][path]")
+          parts = path.split(File::SEPARATOR)
+          event.set("podName", parts[-5])
+          event.set("containerName", parts[-4])
+          event.set("namespace", parts[-7])
+          event.set("key", sprintf("%s/%s", parts[-7], parts[-5]))
+          '
+      }
     }
     filter {
-	  json {
-	    source => "message"
-	  }
+      json {
+        source => "message"
+      }
     }
     filter {
-	  date {
-	    match => [ "timestamp", "ISO8601" ]
-	    target => "@timestamp"
-	  }
-	}
+      date {
+        match => [ "timestamp", "ISO8601" ]
+        target => "@timestamp"
+      }
+    }
     filter {
       translate {
-	field => "key"
-	destination => "[enrichment_data]"
-	dictionary_path => "/space/result.json"
+        field => "key"
+        destination => "[enrichment_data]"
+        dictionary_path => "/space/result.json"
       }
 
       json {
-	source => "[enrichment_data]"
+        source => "[enrichment_data]"
       }
     }
     output {                                               
       elasticsearch {            
-	hosts => ["localhost"]       
-	manage_template => false                           
-	index => "cnvlogs-%{+YYYY.MM.dd}"                          
-	document_type => "%{[@metadata][type]}"
-      }      
+        hosts => ["localhost"]       
+        manage_template => false                           
+        index => "cnvlogs-%{+YYYY.MM.dd}"                          
+        document_type => "%{[@metadata][type]}"
+      }
     }
 ---
+
 apiVersion: v1
 kind: Pod
 metadata:
@@ -95,7 +95,7 @@ metadata:
 spec:
   containers:
   - name: kibana-logging
-    image: docker.elastic.co/kibana/kibana-oss:8.1.0
+    image: docker.elastic.co/kibana/kibana:8.1.0
     resources:
       # need more cpu upon initialization, therefore burstable class
       limits:
@@ -109,6 +109,14 @@ spec:
     - containerPort: 5601
       name: ui
       protocol: TCP
+  - name: logsviewer
+    image: quay.io/vladikr/logsviewer
+    command: ["/backend"]
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+      - name: logstore
+        mountPath: /space
   - name: logstash
     image: docker.elastic.co/logstash/logstash:8.1.0
     ports:
@@ -119,7 +127,7 @@ spec:
       - name: logstash-pipeline-volume
         mountPath: /usr/share/logstash/pipeline
       - name: logstore
-	mountPath: /space
+        mountPath: /space
   - image: docker.elastic.co/elasticsearch/elasticsearch:8.1.0
     name: elasticsearch-logging
     resources:
@@ -160,17 +168,17 @@ spec:
   - name: elasticsearch-logging
     emptyDir: {}
   - name: logstore
-        persistentVolumeClaim:
-          claimName: elasticsearch
+    persistentVolumeClaim:
+      claimName: elasticsearch
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: elasticsearch
 spec:
-  # storageClassName: standard
+  storageClassName: local
   accessModes:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 1G
+      storage: 20G
