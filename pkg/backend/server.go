@@ -6,8 +6,6 @@ import (
     "net/http"
     "io"
     "os"
-    //"time"
-    //"path/filepath"
 
     "github.com/gorilla/websocket"
 )
@@ -108,16 +106,13 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Successfully Uploaded File\n")
 }
 
+func SetupRoutes(publicDir string) *http.ServeMux {
+  mux := http.NewServeMux()
+  web := http.FileServer(http.Dir(publicDir))
 
+  mux.Handle("/", web)
+  mux.HandleFunc("/uploadLogs", uploadLogs)
+  return mux
 
-
-func SetupRoutes() {
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintf(w, "Simple Server")
-  })
-
-  http.HandleFunc("/uploadLogs", uploadLogs)
-  // mape our `/ws` endpoint to the `serveWs` function
-    http.HandleFunc("/ws", serveWs)
 }
 
