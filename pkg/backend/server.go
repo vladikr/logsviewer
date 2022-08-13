@@ -2,13 +2,20 @@ package backend
 
 import (
     "fmt"
-    "log"
     "net/http"
     "io"
     "os"
+    "errors"
     "encoding/json"
+    "io/ioutil"
+
+    "logsviewer/pkg/backend/log"
 
     "github.com/gorilla/websocket"
+)
+
+const (
+    ENRICHMENT_DATA_FILE = "/space/result.json"
 )
 
 // We'll need to define an Upgrader
@@ -32,14 +39,14 @@ func reader(conn *websocket.Conn) {
     // read in a message
         messageType, p, err := conn.ReadMessage()
         if err != nil {
-            log.Println(err)
+            log.Log.Println(err)
             return
         }
     // print out that message for clarity
         fmt.Println(string(p))
 
         if err := conn.WriteMessage(messageType, p); err != nil {
-            log.Println(err)
+            log.Log.Println(err)
             return
         }
 
@@ -54,7 +61,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
   // connection
     ws, err := upgrader.Upgrade(w, r, nil)
     if err != nil {
-        log.Println(err)
+        log.Log.Println(err)
   }
   // listen indefinitely for new messages coming
   // through on our WebSocket connection
@@ -63,6 +70,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
 func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
+    log.Log.Println("File Upload Endpoint Hit")
 
     // Parse our multipart form, 10 << 20 specifies a maximum
     // upload of 10 MB files.
@@ -75,10 +83,12 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
         fmt.Println("Error Retrieving the File")
         fmt.Println(err)
+        log.Log.Println(err)
         return
     }
     defer file.Close()
     fmt.Printf("Uploaded File: %+v\n", handler.Filename)
+    log.Log.Println("Uploaded File: ", handler.Filename)
     fmt.Printf("File Size: %+v\n", handler.Size)
     fmt.Printf("MIME Header: %+v\n", handler.Header)
 
@@ -107,8 +117,8 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
 	return
     }
 
-    fmt.Fprintf(w, "Successfully Uploaded File\n")
     fmt.Println("Successfully Uploaded File: ", handler.Filename)
+    log.Log.Println("Successfully Uploaded File: ", handler.Filename)
     w.Header().Set("Content-Type", "application/json;charset=utf-8")
     json.NewEncoder(w).Encode(map[string]interface{}{
        "success":     true,
@@ -117,16 +127,33 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
 
     mime := handler.Header.Get("Content-Type")
     if mime == "application/gzip" {
-	    go handleTarGz(w, destinationFilePath, "/space")
+        if err := handleTarGz(destinationFilePath, "/space"); err != nil {
+	    http.Error(w, err.Error(), http.StatusInternalServerError)
+	    return
+	}
+	if err := regenerateEnrichmentData(); err != nil {
+	    http.Error(w, err.Error(), http.StatusInternalServerError)
+	    return
+	}
+    }
+}
+
+func verifyFiles() {
+    if _, err := os.Stat(ENRICHMENT_DATA_FILE); errors.Is(err, os.ErrNotExist) {
+        m := make(map[string]string)
+        content, _ := json.Marshal(m)
+    	ioutil.WriteFile(ENRICHMENT_DATA_FILE, content, 0644)
     }
 }
 
 func SetupRoutes(publicDir string) *http.ServeMux {
+  verifyFiles()
   mux := http.NewServeMux()
   web := http.FileServer(http.Dir(publicDir))
 
   mux.Handle("/", web)
   mux.HandleFunc("/uploadLogs", uploadLogs)
+  log.Log.Println("Routes set")
   return mux
 
 }
