@@ -9,7 +9,8 @@ const ImportLogsPage = () => {
   }
   function handleSubmit(event) {
     event.preventDefault()
-    const url = 'http://localhost:8080/uploadLogs';
+    //const url = 'http://localhost:8080/uploadLogs';
+    const url = '/uploadLogs';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);
@@ -20,7 +21,9 @@ const ImportLogsPage = () => {
     };
     axios.post(url, formData, config).then((response) => {
       console.log(response.data);
-    });
+    }).catch(error => {
+    console.log(error.response)
+});
 
   }
 

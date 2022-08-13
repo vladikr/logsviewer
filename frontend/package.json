@@ -47,5 +47,6 @@
     "postcss-cli": "^8.1.0"
   },
   "keywords": [],
-  "description": ""
+  "description": "",
+  "proxy": "http://localhost:8080"
 }
