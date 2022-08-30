@@ -36,6 +36,17 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: kibana-configmap
+data:
+  kibana.yml: |
+    server.host: 0.0.0.0
+    server.shutdownTimeout: 5s
+    elasticsearch.hosts: ['http://localhost:9200']
+    monitoring.ui.container.elasticsearch.enabled: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: logstash-configmap
 data:
   logstash.yml: |
@@ -45,8 +56,8 @@ data:
     input {
       file {
         mode => "read"   
-        path => ["/space/**/*.log"]            
-        codec => json
+        path => ["/space/namespaces/**/*.log"]            
+        codec => plain
         type => "CNVLogs"
         file_completed_action => log_and_delete
         file_completed_log_path => "/tmp/processed.log"
@@ -124,6 +135,10 @@ spec:
     - containerPort: 5601
       name: ui
       protocol: TCP
+    volumeMounts:
+    - name: kibana-cfg
+      mountPath: /usr/share/kibana/config/kibana.yml
+      subPath: kibana.yml
   - name: logsviewer
     image: quay.io/vladikr/logsviewer
     command: ["/backend"]
@@ -188,6 +203,12 @@ spec:
       items:
         - key: elasticsearch.yml
           path: elasticsearch.yml
+  - name: kibana-cfg
+    configMap:
+      name: kibana-configmap
+      items:
+        - key: kibana.yml
+          path: kibana.yml
 
   - name: elasticsearch-logging
     emptyDir: {}

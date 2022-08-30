@@ -29,11 +29,11 @@ type Metadata struct {
 }
 
 type Spec struct {
-    NodeName string
+    NodeName string `yaml:"nodeName,omitempty"`
 }
 
 type Status struct {
-    HostIP string
+    HostIP string `yaml:"hostIP,omitempty"`
 }
 
 type OwnerReference struct {
@@ -56,11 +56,14 @@ func handleTarGz(srcFile string, targetPath string) error {
     if err := os.Remove(srcFile); err != nil {
         log.Log.Fatalln("failed to delete file ", srcFile, " - ", err)
     }
+    log.Log.Println("removed file: ", srcFile)
     return nil
 }
 
 
 func unTarGz(srcFile string, targetPath string) error {
+    var namespacePrefixPath []string
+
     gzipStream, err := os.Open(srcFile)
     defer gzipStream.Close()
 
@@ -69,7 +72,6 @@ func unTarGz(srcFile string, targetPath string) error {
 	return err
     }
 
-    pathToNamespacesDir := ""
     uncompressedStream, err := gzip.NewReader(gzipStream)
     if err != nil {
         log.Log.Fatalln("failed create gzip stream  - ", err)
@@ -95,16 +97,20 @@ func unTarGz(srcFile string, targetPath string) error {
 		continue
 	}
 	
-	if pathToNamespacesDir == "" {
+    if len(namespacePrefixPath) == 0 {
+
+        log.Log.Println("Header name: ", header.Name)
 	    // find path to the namespaces directory	
 	    sp := strings.Split(header.Name, "/")
 	    for _, ps := range sp {
 	        if ps == "namespaces" {
 	            break
 	        }
-	        pathToNamespacesDir = filepath.Join(pathToNamespacesDir, ps)
+            namespacePrefixPath = append(namespacePrefixPath, ps)
+            log.Log.Println("current pathToNamespacesDir: ", strings.Join(namespacePrefixPath[:], "/"))
 	    }
 	}
+    pathToNamespacesDir := strings.Join(namespacePrefixPath[:], "/")
 	workingHeaderName := strings.TrimPrefix(header.Name, pathToNamespacesDir)
 	newTarget := filepath.Join(targetPath, workingHeaderName)
 
@@ -129,7 +135,7 @@ func unTarGz(srcFile string, targetPath string) error {
 
         default:
             log.Log.Fatalf(
-                "ExtractTarGz: uknown type: %s in %s",
+                "uknown header type: %s in %s",
                 header.Typeflag,
                 header.Name)
 	        return err
@@ -192,5 +198,6 @@ func regenerateEnrichmentData() error {
     js1, _ := json.Marshal(lookupData)
     _ = ioutil.WriteFile(ENRICHMENT_DATA_FILE, js1, 0644)
     
+    log.Log.Println("finished writting lookupData")
     return nil
 }
