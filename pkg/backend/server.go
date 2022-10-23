@@ -68,6 +68,11 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
     reader(ws)
 }
 
+func getPods(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Pods Endpoint Hit")
+
+}
+
 func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
     log.Log.Println("File Upload Endpoint Hit")
@@ -96,14 +101,14 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     // TODO: make this path configurable
     err = os.MkdirAll("/space", os.ModePerm)
     if err != nil {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
-	return
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
     }
 
     destinationFilePath := fmt.Sprintf("/space/%s", handler.Filename)
     dst, err := os.Create(destinationFilePath)
     if err != nil {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
+        http.Error(w, err.Error(), http.StatusInternalServerError)
 	return
     } 
 
@@ -113,8 +118,8 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     // at the specified destination
     _, err = io.Copy(dst, file)
     if err != nil {
-  	http.Error(w, err.Error(), http.StatusInternalServerError)
-	return
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
     }
 
     fmt.Println("Successfully Uploaded File: ", handler.Filename)
@@ -128,13 +133,14 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
     mime := handler.Header.Get("Content-Type")
     if mime == "application/gzip" {
         if err := handleTarGz(destinationFilePath, "/space"); err != nil {
-	    http.Error(w, err.Error(), http.StatusInternalServerError)
-	    return
-	}
-	if err := regenerateEnrichmentData(); err != nil {
-	    http.Error(w, err.Error(), http.StatusInternalServerError)
-	    return
-	}
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        logsHandler := NewLogsHandler()
+        if err := logsHandler.processPodXMLs(); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
     }
 }
 
@@ -150,9 +156,11 @@ func SetupRoutes(publicDir string) *http.ServeMux {
   verifyFiles()
   mux := http.NewServeMux()
   web := http.FileServer(http.Dir(publicDir))
-
+    
   mux.Handle("/", web)
+  //TODO: move to an API sub
   mux.HandleFunc("/uploadLogs", uploadLogs)
+  mux.HandleFunc("/pods", getPods)
   log.Log.Println("Routes set")
   return mux
 

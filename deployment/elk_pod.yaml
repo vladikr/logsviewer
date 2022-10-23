@@ -120,6 +120,27 @@ metadata:
     app.kubernetes.io/name: logsviewer
 spec:
   containers:
+  - name: mysql
+    image: mysql:5.7
+    imagePullPolicy: IfNotPresent
+    env:
+      - name: MYSQL_ROOT_PASSWORD
+        value: supersecret
+      - name: MYSQL_USER
+        value: mysql
+      - name: MYSQL_PASSWORD
+        value: supersecret
+      - name: MYSQL_DATABASE
+        value: objtracker
+    args:
+      - --ignore-db-dir=lost+found
+    ports:
+      - containerPort: 3306
+        name: mysql
+        protocol: TCP
+    volumeMounts:
+      - mountPath: /var/lib/mysql
+        name: mysql-storage
   - name: kibana-logging
     image: docker.elastic.co/kibana/kibana:8.1.0
     resources:
@@ -212,6 +233,8 @@ spec:
 
   - name: elasticsearch-logging
     emptyDir: {}
+  - name: mysql-storage
+    emptyDir: {}
   - name: logstore
     persistentVolumeClaim:
       claimName: elasticsearch
@@ -221,7 +244,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: elasticsearch
 spec:
-  storageClassName: local
+  storageClassName: odf-lvm-vg1
   accessModes:
   - ReadWriteOnce
   resources:

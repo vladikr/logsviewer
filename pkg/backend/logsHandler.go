@@ -10,9 +10,13 @@ import (
     "fmt"
     "io/ioutil"
     "encoding/json"
+    "sync"
+
+	k8sv1 "k8s.io/api/core/v1"
 
     "logsviewer/pkg/backend/log"
-    "gopkg.in/yaml.v2"
+    "logsviewer/pkg/backend/db"
+    "sigs.k8s.io/yaml"
 )
 
 type Pods struct {
@@ -47,6 +51,26 @@ type EnrichmentData struct {
     OwnerReferences []string    `json:"pod.ownerReferences,omitempty"`
 }
 
+type logsHandler struct {
+    handlerLock sync.Mutex
+    stopCh      chan struct{}
+    objectStore *db.ObjectStore
+    lookupData  map[string]EnrichmentData
+}
+
+func NewLogsHandler() *logsHandler {
+    lookupData := make(map[string]EnrichmentData)
+    stopCh := make(chan struct{}, 1)
+    objStore := db.NewObjectStore()
+
+    go objStore.Run(1, stopCh)
+
+    return &logsHandler{
+        lookupData: lookupData,
+        objectStore: objStore,
+        stopCh: stopCh,
+    }
+}
 
 func handleTarGz(srcFile string, targetPath string) error {
     if err := unTarGz(srcFile, targetPath); err != nil {
@@ -146,7 +170,92 @@ func unTarGz(srcFile string, targetPath string) error {
     return nil
 }
 
-func regenerateEnrichmentData() error {
+func (l *logsHandler) loadExistingEnrichmentData() error {
+    // read the existing enrichment data file
+    jsonFile, err := os.Open(ENRICHMENT_DATA_FILE)
+    if err != nil {
+        return err
+    }
+    defer jsonFile.Close()
+
+    byteValue, err := ioutil.ReadAll(jsonFile)
+    if err != nil {
+        return err
+    }
+    
+    json.Unmarshal([]byte(byteValue), &l.lookupData)
+
+    return nil
+}
+
+func (l *logsHandler) processEnrichmentData(pod *Pods) {
+      // generate enrichment data
+	  key := fmt.Sprintf("%s/%s", pod.Metadata.Namespace, pod.Metadata.Name)
+	  
+      enrichmentData := EnrichmentData{
+		  HostName: pod.Spec.NodeName,
+		  HostIP:   pod.Status.HostIP,
+		  UID:      pod.Metadata.UID,
+      }
+      if pod.Metadata.OwnerReferences != nil {
+          for _, ref := range pod.Metadata.OwnerReferences {
+              enrichmentData.OwnerReferences = append(enrichmentData.OwnerReferences, ref.UID)
+          }
+	  }
+      l.lookupData[key] = enrichmentData
+
+    return
+}
+
+func (l *logsHandler) storePodData(yamlFile []byte) error {
+    var pod k8sv1.Pod
+
+    err := yaml.Unmarshal(yamlFile, &pod)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal yaml  - ", err)
+      return err
+    }
+
+    l.objectStore.Add(&pod)
+    return nil
+}
+
+func (l *logsHandler) processPodXMLs() error {
+    var pod Pods
+    l.handlerLock.Lock()
+    defer l.handlerLock.Unlock()
+    defer close(l.stopCh)
+
+    l.loadExistingEnrichmentData()
+
+    //TODO: make path configurable
+    layouts, err := filepath.Glob("/space/namespaces/*/pods/*/*.yaml")
+    if err != nil {
+        return(err)
+    }
+
+    for _, filename := range layouts {
+          // read pod yaml
+        yamlFile, err := ioutil.ReadFile(filename)
+        if err != nil {
+          return err
+        }
+        err = yaml.Unmarshal(yamlFile, &pod)
+        if err != nil {
+          return err
+        }
+        l.processEnrichmentData(&pod)
+        l.storePodData(yamlFile)
+    }
+
+    js1, _ := json.Marshal(l.lookupData)
+    _ = ioutil.WriteFile(ENRICHMENT_DATA_FILE, js1, 0644)
+    
+    log.Log.Println("finished writting lookupData")
+    return nil
+} 
+
+/*func regenerateEnrichmentData() error {
     var pod Pods
     lookupData := make(map[string]EnrichmentData)
 
@@ -162,7 +271,9 @@ func regenerateEnrichmentData() error {
 
 
     //TODO: make path configurable
-    layouts, err := filepath.Glob("/space/namespaces/*/pods/*/*.yaml")
+    //layouts, err := filepath.Glob("/space/namespaces/*
+    ///pods/*/
+    /*.yaml")
     if err != nil {
         return(err)
     }
@@ -178,7 +289,7 @@ func regenerateEnrichmentData() error {
 	    return(err)
 	  }
 
-          // generate enrichment data
+      // generate enrichment data
 	  key := fmt.Sprintf("%s/%s", pod.Metadata.Namespace, pod.Metadata.Name)
 	  
           enrichmentData := EnrichmentData{
@@ -191,7 +302,7 @@ func regenerateEnrichmentData() error {
                   enrichmentData.OwnerReferences = append(enrichmentData.OwnerReferences, ref.UID)
               }
 	  }
-          lookupData[key] = enrichmentData
+      lookupData[key] = enrichmentData
 
 
     }
@@ -201,3 +312,4 @@ func regenerateEnrichmentData() error {
     log.Log.Println("finished writting lookupData")
     return nil
 }
+*/
