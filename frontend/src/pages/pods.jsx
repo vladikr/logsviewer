@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import {DashboardLayout} from '../components/Layout';
+//import { Pod, PodsApiResponse } from './podObject';
 import "./index.css";
 
 //3 TanStack Libraries!!!
 import {
   ColumnDef,
-  ColumnSort,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
-  Row,
-  SortingState,
+  //Row,
   useReactTable
 } from "@tanstack/react-table";
 import {
@@ -20,106 +19,80 @@ import {
   useInfiniteQuery
 } from "@tanstack/react-query";
 import { useVirtual } from "react-virtual";
-export type Pod = {
-	uuid: string;
-	name: string;
-	namespace: string;
-	phase: string;
-	activeContainers: number;
-	totalContainers: number;
-	creationTime: Date;
+export type Poda = {
+    uuid: string;
+    name: string;
+    namespace: string;
+    phase: string;
+    activeContainers: number;
+    totalContainers: number;
+    creationTime: Date;
 };
 
-export type PodsApiResponse = {
-    data: Pod[];
-    meta: {
-  	    totalRowCount: number;
+type PodsApiResponse = {
+        data: Poda[];
+        meta: {
+            totalRowCount: number;
+        }
     }
-};
+
 
 const fetchSize = 25;
 
-const queryClient = new QueryClient();
-const PodsPage = () => {
-  return (
-    <DashboardLayout>
-		<QueryClientProvider client={queryClient}>
-		  <App />
-		</QueryClientProvider>
-    </DashboardLayout>
-  )
-}
-
-export default PodsPage;
-
+//we need a reference to the scrolling element for logic down below
+const tableContainerRef = React.useRef<HTMLDivElement>(null);
+const columns = React.useMemo<ColumnDef<Poda>[]>(
+() => [
+  {
+    accessorKey: "uuid",
+    cell: (info) => info.getValue(),
+    header: () => <span>UUID</span>
+  },
+  {
+    accessorKey: "name",
+    cell: (info) => info.getValue(),
+    header: () => <span>Name</span>
+  },
+  {
+    accessorKey: "namespace",
+    cell: (info) => info.getValue(),
+    header: () => <span>Namespace</span>
+  },
+  {
+    accessorKey: "phase",
+    cell: (info) => info.getValue(),
+    header: () => <span>Phase</span>
+  },
+  {
+    accessorKey: "activeContainers",
+    header: () => <span>Active Containers</span>,
+    size: 50
+  },
+  {
+    accessorKey: "totalContainers",
+    header: () => <span>Total Containers</span>,
+    size: 50
+  },
+  {
+    accessorKey: "creationTime",
+    header: "Created At",
+    cell: (info) => info.getValue()
+  }
+],
+[]
+);
 
 function App() {
   const [data, setData] = useState([]);
   const rerender = React.useReducer(() => ({}), {})[1];
 
-  //we need a reference to the scrolling element for logic down below
-  const tableContainerRef = React.useRef<HTMLDivElement>(null);
 
   //const [sorting, setSorting] = React.useState < SortingState > [];
 
-  const columns = React.useMemo<ColumnDef<Pod>[]>(
-    () => [
-      {
-        accessorKey: "uuid",
-        cell: (info) => info.getValue(),
-        header: () => <span>UUID</span>
-      },
-      {
-        accessorKey: "name",
-        cell: (info) => info.getValue(),
-        header: () => <span>Name</span>
-      },
-      {
-        accessorKey: "namespace",
-        cell: (info) => info.getValue(),
-        header: () => <span>Namespace</span>
-      },
-      {
-        accessorKey: "phase",
-        cell: (info) => info.getValue(),
-        header: () => <span>Phase</span>
-      },
-      {
-        accessorKey: "activeContainers",
-        header: () => <span>Active Containers</span>,
-        size: 50
-      },
-      {
-        accessorKey: "totalContainers",
-        header: () => <span>Total Containers</span>,
-        size: 50
-      },
-      {
-        accessorKey: "creationTime",
-        header: "Created At",
-        cell: (info) => info.getValue()
-      }
-    ],
-    []
-  );
     const fetchData = (
 		start: number,
 		size: number
-  		//sorting: SortingState
 	) => {
-/*
-       useEffect(() => {
-           (async () => {
-             //const result = await axios("https://api.tvmaze.com/search/shows?q=snow");
-             const result = await axios("/pods");
-             setData(result.data);
-           })();
-       }, []);
-*/
-		/*async () => {
-		  const result = await axios("/pods");
-		  setData(result.data);
-		};*/
         return axios.get("/pods",
             {
                 params: {
@@ -135,31 +108,6 @@ function App() {
             })
     }
 
-/*
-            .then((data, meta) => {
-        setCurrentItems(data.slice(itemOffset, endOffset));
-        setData(data);
-  		const dbData = [...data]
-      });
-  		/*if (sorting.length) {
-			const sort = sorting[0] as ColumnSort;
-			const { id, desc } = sort as { id: keyof Pod; desc: boolean }
-			dbData.sort((a, b) => {
-				if (desc) {
-					return a[id] < b[id] ? 1 : -1
-				}
-				return a[id] > b[id] ? 1 : -1
-			})
-  		}*/
-/*
-	  return {
-		data: dbData.slice(start, start + size),
-		meta: {
-		  totalRowCount: dbData.length,
-		},
-	  }
-	}
-*/
   //react-query has an useInfiniteQuery hook just for this situation!
   const { fetchNextPage, isFetching, isLoading } = useInfiniteQuery<
     PodsApiResponse
@@ -177,13 +125,6 @@ function App() {
     }
   );
 
-
-//    useEffect(() => {
-//    (async () => {
-//      const result = await axios("https://api.tvmaze.com/search/shows?q=snow");
-//      setData(result.data);
-//    })();
- // }, []);
   //we must flatten the array of arrays from the useInfiniteQuery hook
   const flatData = React.useMemo(
     () => data?.pages?.flatMap((page) => page.data) ?? [],
@@ -218,10 +159,6 @@ function App() {
   const table = useReactTable({
     data: flatData,
     columns,
-    //state: {
-    //  sorting
-    //},
-    //onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     debugTable: true
@@ -331,3 +268,15 @@ function App() {
   );
 }
 
+const queryClient = new QueryClient();
+const PodsPage = () => {
+  return (
+    <DashboardLayout>
+		<QueryClientProvider client={queryClient}>
+		  <App />
+		</QueryClientProvider>
+    </DashboardLayout>
+  )
+}
+
+export default PodsPage;
