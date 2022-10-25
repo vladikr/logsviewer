@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+    "strconv"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
     "logsviewer/pkg/backend/log"
@@ -200,6 +201,122 @@ func (d *databaseInstance) DropTables() error {
 	}
 
 	return nil
+}
+
+func (d *databaseInstance) getMeta(page int, perPage int, queryString string) (map[string]int, error) {  
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+    stmt, err := d.db.PrepareContext(ctx, "select count(*) as totalRecords from (" + queryString + ") tmp")
+    if err != nil {
+        return nil, err
+    }
+    defer stmt.Close()
+
+    totalRecords := 0
+
+    err = stmt.QueryRow().Scan(&totalRecords)
+    if err != nil {
+        return nil, err
+    }
+    
+    totalPages := 0
+
+    if perPage != -1 {
+        totalPages = totalRecords/perPage
+    } else {
+        totalPages = 1
+    }
+
+
+    if totalRecords % perPage > 0 {
+        totalPages++
+    } 
+
+    meta  := map[string]int { 
+        "page":        		page,
+        "per_page":    		perPage,
+        "totalRowCount":    totalRecords,
+        "totalPages": 		totalPages,
+    }
+
+    if err != nil {
+        return nil, err
+    }
+
+    return meta, nil
+}
+
+
+func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
+	response := map[string]interface{}{}
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	limit := " "
+    if perPage != -1 {
+        limit = " limit " + strconv.Itoa((page - 1) * perPage) + ", " + strconv.Itoa(perPage)  
+    }
+
+	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime from pods"
+
+
+	stmt, err := d.db.PrepareContext(ctx, queryString + limit)
+	if err != nil {
+		return response, err
+	}
+	defer stmt.Close()
+
+
+	rows, err := stmt.Query() 
+//	_, err = stmt.ExecContext(ctx)
+	if err != nil {
+		return response, err
+	}
+
+	defer rows.Close()
+
+
+
+    columns, err := rows.Columns()
+	if err != nil {
+		return response, err
+	}
+	data     := []map[string]interface{}{}
+    count    := len(columns)
+    values   := make([]interface{}, count)
+    scanArgs := make([]interface{}, count)
+
+    for i := range values {
+        scanArgs[i] = &values[i]
+    }
+
+    for rows.Next() {
+        err := rows.Scan(scanArgs...)
+        if err != nil {
+			return response, err
+		}
+		tbRecord := map[string]interface{}{}
+        for i, col := range columns {
+           v     := values[i]
+           b, ok := v.([]byte)
+           if (ok) {
+               tbRecord[col] = string(b)
+           } else {
+               tbRecord[col] = v
+           }
+        }
+        data = append(data, tbRecord)
+
+    } 
+
+	meta, err := d.getMeta(page, perPage, queryString)
+	if err != nil {
+		return nil, err
+	}
+	response["data"] = data
+	response["meta"] = meta
+    return response, nil 
 }
 
 /*func (d *databaseInstance) StoreObjectChange(object *Object, content json.RawMessage) error {
