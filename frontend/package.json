@@ -17,6 +17,7 @@
     "react-scripts": "5.0.1",
     "react-virtual": "^2.10.4",
     "tailwindcss": "1.9.6",
+    "typescript": "latest",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
