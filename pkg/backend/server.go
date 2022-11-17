@@ -71,7 +71,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 }
 
 func getPods(w http.ResponseWriter, r *http.Request) {
-    log.Log.Println("Get Pods Endpoint Hit")
+    log.Log.Println("Get Pods Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
             params[k] = v[0]
@@ -100,6 +100,7 @@ func getPods(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
+    defer dbInst.Shutdown()
 
 	data, err := dbInst.GetPods(currentPage, pageSize)
     if err != nil {
