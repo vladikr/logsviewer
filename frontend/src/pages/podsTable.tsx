@@ -70,12 +70,12 @@ export const PodsTable = () => {
           {
             accessorKey: "activeContainers",
             header: () => <span>Active Containers</span>,
-            size: 50
+            size: 80
           },
           {
             accessorKey: "totalContainers",
             header: () => <span>Total Containers</span>,
-            size: 50
+            size: 80
           },
           {
             accessorKey: "creationTime",
@@ -111,8 +111,9 @@ export const PodsTable = () => {
   >(
     ["table-data"], //adding sorting state as key causes table to reset and fetch from new beginning upon sort
 	async ({ pageParam = 0 }) => {
-      const start = pageParam * fetchSize;
-      const fetchedData = fetchData(start, fetchSize); //, sorting);
+      console.log(pageParam)
+      const start = pageParam;
+      const fetchedData = fetchData(start, fetchSize);
       return fetchedData;
     },
     {
@@ -124,9 +125,13 @@ export const PodsTable = () => {
 
   //we must flatten the array of arrays from the useInfiniteQuery hook
   const flatData = React.useMemo(
-    () => data?.pages?.flatMap((page) => page.data) ?? [],
+    () => 
+        data?.pages?.flatMap((page) => page.data) ?? [],
     [data]
   );
+  console.log(data);
+  console.log(data?.pages);
+  console.log(flatData.length);
   const totalDBRowCount = data?.pages?.[0]?.meta?.totalRowCount ?? 0;
   const totalFetched = flatData.length;
 
