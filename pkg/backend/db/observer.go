@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 
-//	v1 "kubevirt.io/api/core/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
     
     "logsviewer/pkg/backend/log"
 )
@@ -128,6 +128,7 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
         log.Log.Println("failed to marshal pod object ", pod, " err: ", err)
     }
 
+    createdByUID := pod.Labels[kubevirtv1.CreatedByLabel]
     totalContainers, activeContainers := d.countPodContainers(pod)
     name := pod.GetObjectMeta().GetName()
     namespace := pod.GetObjectMeta().GetNamespace()
@@ -145,6 +146,7 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
         NodeName: string(pod.Spec.NodeName),
         CreationTime: pod.CreationTimestamp,
         Content: jsonBytes,
+        CreatedBy: createdByUID,
 	}
 	if err := d.storeDB.StorePod(storeObj); err != nil {
         log.Log.Println("failed to store obj  ", storeObj, " err: ", err)
@@ -153,6 +155,33 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
 	return nil
 }
 
+func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
+    jsonBytes, err := json.Marshal(vmi)
+    if err != nil {
+        log.Log.Println("failed to marshal vmi object ", vmi, " err: ", err)
+    }
+
+    name := vmi.GetObjectMeta().GetName()
+    namespace := vmi.GetObjectMeta().GetNamespace()
+    uid := string(vmi.GetObjectMeta().GetUID())
+	storeObj := &VirtualMachineInstance{
+		Name:      name,
+		Namespace: namespace,
+		UUID:      uid,
+        Phase:     string(vmi.Status.Phase),    
+        Reason:     string(vmi.Status.Reason),    
+        NodeName: string(vmi.Status.NodeName),
+        CreationTime: vmi.CreationTimestamp,
+        Content: jsonBytes,
+	}
+	if err := d.storeDB.StoreVmi(storeObj); err != nil {
+        log.Log.Println("failed to store vmi obj  ", storeObj, " err: ", err)
+		return err
+	}
+	return nil
+}
+
+
 func (d *ObjectStore) processObject(obj interface{}) {
 	switch obj.(type) {
 	case *k8sv1.Pod:
@@ -160,6 +189,11 @@ func (d *ObjectStore) processObject(obj interface{}) {
 		if err := d.storePod(podObj); err == nil {
             log.Log.Println("stored obj  ", podObj)
 		}
+	case *kubevirtv1.VirtualMachineInstance:
+		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
+		if err := d.storeVmi(vmi); err == nil {
+            log.Log.Println("stored vmi obj  ", vmi)
+        }
 	default:
 		jsonBytes, err := json.Marshal(obj)
 		if err != nil {
@@ -177,6 +211,11 @@ func (d *ObjectStore) Add(obj interface{}) {
         
         d.wg.Add(1)    
 	    d.Queue.Add(podObj)
+	case *kubevirtv1.VirtualMachineInstance:
+		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
+        
+        d.wg.Add(1)    
+	    d.Queue.Add(vmi)
 	default:
 		log.Log.Println("Cannot store unsupported obj ", v)
     }

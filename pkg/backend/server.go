@@ -181,7 +181,12 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
             return
         }
         logsHandler := NewLogsHandler()
+        defer close(logsHandler.stopCh)
         if err := logsHandler.processPodXMLs(); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        if err := logsHandler.processVirtualMachineInstanceXMLs(); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }

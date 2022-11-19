@@ -30,6 +30,20 @@ type (
         NodeName         string `json:"nodeName"`
         CreationTime     metav1.Time `json:"creationTime"`
 		Content json.RawMessage `json:"content"`
+        CreatedBy        string `json:"createdBy"`
+	}
+
+	VirtualMachineInstance struct {
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
+		UUID      string `json:"uuid"`
+        Reason     string `json:"reason"`
+        Phase     string `json:"phase"`
+        NodeName         string `json:"nodeName"`
+        CreationTime     metav1.Time `json:"creationTime"`
+        //PodName   string `json:"podName"`
+        //HandlerPod  string `json:"handlerName"`
+		Content json.RawMessage `json:"content"`
 	}
 )
 
@@ -57,7 +71,8 @@ func (d *databaseInstance) StorePod(pod *Pod) error {
         pod.TotalContainers,
         pod.NodeName,
         madeAt,
-        pod.Content)
+        pod.Content,
+        pod.CreatedBy)
 	if err != nil {
 		return err
 	}
@@ -65,8 +80,37 @@ func (d *databaseInstance) StorePod(pod *Pod) error {
 	return nil
 } 
 
+func (d *databaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
+	// TimeString - given a time, return the MySQL standard string representation
+	madeAt := vmi.CreationTime.Format("2006-01-02 15:04:05.999999")
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	stmt, err := d.db.PrepareContext(ctx, insertVmiQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(
+        ctx,
+        vmi.Name,
+        vmi.Namespace,
+        vmi.UUID,
+        vmi.Reason,
+        vmi.Phase,
+        vmi.NodeName,
+        madeAt,
+        vmi.Content)
+	if err != nil {
+		return err
+	}
+
+	return nil
+} 
 var (
-	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+	insertVmiQuery       = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 )
 
 var (
@@ -150,6 +194,16 @@ func (d *databaseInstance) connect() (err error) {
 }
 
 func (d *databaseInstance) createTables() error {
+    if err := d.createPodsTable(); err != nil {
+		return err
+	}
+    if err := d.createVmisTable(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *databaseInstance) createPodsTable() error {
 
 	createPodsTable := `
 	CREATE TABLE IF NOT EXISTS pods (
@@ -164,10 +218,35 @@ func (d *databaseInstance) createTables() error {
       nodeName varchar(100),
       creationTime datetime,
       content json,
+	  createdBy varchar(100),
 	  PRIMARY KEY (uuid)
 	);
 	`
 	err := d.execTable(createPodsTable)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *databaseInstance) createVmisTable() error {
+
+	vmisTableCreate := `
+	CREATE TABLE IF NOT EXISTS vmis (
+	  name varchar(100),
+	  namespace varchar(100),
+	  uuid varchar(100),
+      reason varchar(100),
+      phase varchar(100),
+      nodeName varchar(100),
+      creationTime datetime,
+      content json,
+	  createdBy varchar(100),
+	  PRIMARY KEY (uuid)
+	);
+	`
+	err := d.execTable(vmisTableCreate)
 	if err != nil {
 		return err
 	}

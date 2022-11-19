@@ -13,6 +13,7 @@ import (
     "sync"
 
 	k8sv1 "k8s.io/api/core/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
 
     "logsviewer/pkg/backend/log"
     "logsviewer/pkg/backend/db"
@@ -220,11 +221,24 @@ func (l *logsHandler) storePodData(yamlFile []byte) error {
     return nil
 }
 
+func (l *logsHandler) storeVMIData(yamlFile []byte) error {
+    var vmi kubevirtv1.VirtualMachineInstance
+
+    err := yaml.Unmarshal(yamlFile, &vmi)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal vmi yaml  - ", err)
+      return err
+    }
+
+    l.objectStore.Add(&vmi)
+    return nil
+}
+
 func (l *logsHandler) processPodXMLs() error {
     var pod Pods
     l.handlerLock.Lock()
     defer l.handlerLock.Unlock()
-    defer close(l.stopCh)
+    //defer close(l.stopCh)
 
     l.loadExistingEnrichmentData()
 
@@ -255,61 +269,27 @@ func (l *logsHandler) processPodXMLs() error {
     return nil
 } 
 
-/*func regenerateEnrichmentData() error {
-    var pod Pods
-    lookupData := make(map[string]EnrichmentData)
-
-    // read the existing enrichment data file
-    jsonFile, err := os.Open(ENRICHMENT_DATA_FILE)
-    if err != nil {
-        return(err)
-    }
-    defer jsonFile.Close()
-
-    byteValue, _ := ioutil.ReadAll(jsonFile)
-    json.Unmarshal([]byte(byteValue), &lookupData)
+func (l *logsHandler) processVirtualMachineInstanceXMLs() error {
+    l.handlerLock.Lock()
+    defer l.handlerLock.Unlock()
+    //defer close(l.stopCh)
 
 
     //TODO: make path configurable
-    //layouts, err := filepath.Glob("/space/namespaces/*
-    ///pods/*/
-    /*.yaml")
+    layouts, err := filepath.Glob("/space/namespaces/*/kubevirt.io/virtualmachineinstances/*.yaml")
     if err != nil {
         return(err)
     }
 
     for _, filename := range layouts {
           // read pod yaml
-	  yamlFile, err := ioutil.ReadFile(filename)
-	  if err != nil {
-	    return(err)
-	  }
-	  err = yaml.Unmarshal(yamlFile, &pod)
-	  if err != nil {
-	    return(err)
-	  }
-
-      // generate enrichment data
-	  key := fmt.Sprintf("%s/%s", pod.Metadata.Namespace, pod.Metadata.Name)
-	  
-          enrichmentData := EnrichmentData{
-		  HostName: pod.Spec.NodeName,
-		  HostIP:   pod.Status.HostIP,
-		  UID:      pod.Metadata.UID,
-          }
-          if pod.Metadata.OwnerReferences != nil {
-              for _, ref := range pod.Metadata.OwnerReferences {
-                  enrichmentData.OwnerReferences = append(enrichmentData.OwnerReferences, ref.UID)
-              }
-	  }
-      lookupData[key] = enrichmentData
-
-
+        yamlFile, err := ioutil.ReadFile(filename)
+        if err != nil {
+          return err
+        }
+        l.storeVMIData(yamlFile)
     }
-    js1, _ := json.Marshal(lookupData)
-    _ = ioutil.WriteFile(ENRICHMENT_DATA_FILE, js1, 0644)
-    
+
     log.Log.Println("finished writting lookupData")
     return nil
-}
-*/
+} 
