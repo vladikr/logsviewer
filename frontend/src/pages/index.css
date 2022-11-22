@@ -19,8 +19,8 @@ thead {
 }
 
 th {
-  border-bottom: 1px solid yellow;
-  border-right: 1px solid lawngreen;
+  border-bottom: 1px solid black;
+  border-right: 1px solid black;
   padding: 2px 4px;
   text-align: left;
 }
@@ -37,5 +37,5 @@ td {
 }
 
 .container tr:hover {
-  background: yellow;
+  background: grey;
 }

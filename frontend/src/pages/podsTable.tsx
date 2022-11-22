@@ -9,12 +9,10 @@ import {
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
-  //Row,
+  Row,
   useReactTable
 } from "@tanstack/react-table";
 import {
-//  QueryClient,
-//  QueryClientProvider,
   useInfiniteQuery
 } from "@tanstack/react-query";
 import { useVirtual } from "react-virtual";
@@ -26,6 +24,7 @@ export type Pod = {
     activeContainers: number;
     totalContainers: number;
     creationTime: Date;
+    createdBy: string;
 };
 
 type PodsApiResponse = {
@@ -55,7 +54,8 @@ export const PodsTable = () => {
           {
             accessorKey: "name",
             cell: (info) => info.getValue(),
-            header: () => <span>Name</span>
+            header: () => <span>Name</span>,
+            size: 100
           },
           {
             accessorKey: "namespace",
@@ -81,6 +81,11 @@ export const PodsTable = () => {
             accessorKey: "creationTime",
             header: "Created At",
             cell: (info) => info.getValue()
+          },
+          {
+            accessorKey: "createdBy",
+            cell: (info) => info.getValue(),
+            header: () => <span>CreatedBy</span>
           }
         ],
         []
@@ -97,9 +102,8 @@ export const PodsTable = () => {
                     per_page: size
                 }
             }).then(function (resp) {
-                //setData(resp.data);
                 return {
-                    data: resp.data.data.slice(start, start + size), 
+                    data: resp.data.data, 
                     meta: resp.data.meta,
                 };
             })
@@ -111,8 +115,8 @@ export const PodsTable = () => {
   >(
     ["table-data"], //adding sorting state as key causes table to reset and fetch from new beginning upon sort
 	async ({ pageParam = 0 }) => {
-      console.log(pageParam)
       const start = pageParam;
+
       const fetchedData = fetchData(start, fetchSize);
       return fetchedData;
     },
@@ -123,17 +127,25 @@ export const PodsTable = () => {
     }
   );
 
-  //we must flatten the array of arrays from the useInfiniteQuery hook
   const flatData = React.useMemo(
-    () => 
-        data?.pages?.flatMap((page) => page.data) ?? [],
-    [data]
+    () => {
+        const mData = data?.pages?.flatMap((page) => page.data) ?? []
+        if (data === undefined || mData.length === 0) {
+            return mData;
+        } 
+        return Object.values(
+            mData.reduce<Record<string, Pod>>((c, v) => {
+            if (v.hasOwnProperty('uuid')) {
+                c[v.uuid] = v;
+            }
+            return c;
+          }, {}));
+        
+    }, [data]
   );
-  console.log(data);
-  console.log(data?.pages);
-  console.log(flatData.length);
   const totalDBRowCount = data?.pages?.[0]?.meta?.totalRowCount ?? 0;
   const totalFetched = flatData.length;
+
 
   //called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
   const fetchMoreOnBottomReached = React.useCallback(
@@ -142,7 +154,7 @@ export const PodsTable = () => {
         const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
         //once the user has scrolled within 300px of the bottom of the table, fetch more data if there is any
         if (
-          scrollHeight - scrollTop - clientHeight < 300 &&
+          scrollHeight - scrollTop - clientHeight < 10 &&
           !isFetching &&
           totalFetched < totalDBRowCount
         ) {
@@ -236,7 +248,7 @@ export const PodsTable = () => {
               </tr>
             )}
             {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index]; // as Row<Pod>;
+              const row = rows[virtualRow.index] as Row<Pod>;
               return (
                 <tr key={row.id}>
                   {row.getVisibleCells().map((cell) => {
