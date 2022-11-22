@@ -1,6 +1,7 @@
 package backend
 
 import (
+    "bytes"
     "path/filepath"
     "archive/tar"
     "compress/gzip"
@@ -18,6 +19,7 @@ import (
     "logsviewer/pkg/backend/log"
     "logsviewer/pkg/backend/db"
     "sigs.k8s.io/yaml"
+    yamlv3 "gopkg.in/yaml.v3"
 )
 
 type Pods struct {
@@ -269,6 +271,20 @@ func (l *logsHandler) processPodXMLs() error {
     return nil
 } 
 
+func (l *logsHandler) processCombinedVirtualMachineInstanceXMLs(yamlFile []byte) error {
+
+    dec := yamlv3.NewDecoder(bytes.NewReader(yamlFile))
+
+    for {   
+        var vmi kubevirtv1.VirtualMachineInstance
+        if dec.Decode(&vmi) != nil  {
+            break
+        }
+        l.objectStore.Add(&vmi)
+    }
+    return nil
+}
+
 func (l *logsHandler) processVirtualMachineInstanceXMLs() error {
     l.handlerLock.Lock()
     defer l.handlerLock.Unlock()
@@ -289,6 +305,23 @@ func (l *logsHandler) processVirtualMachineInstanceXMLs() error {
         }
         l.storeVMIData(yamlFile)
     }
+
+    if len(layouts) == 0 {
+        
+        combinedXmls, err := filepath.Glob("/space/namespaces/*/kubevirt.io/virtualmachineinstances.yaml")
+        if err != nil {
+            return(err)
+        }
+        for _, filename := range combinedXmls {
+              // read pod yaml
+            yamlFile, err := ioutil.ReadFile(filename)
+            if err != nil {
+              return err
+            }
+            l.processCombinedVirtualMachineInstanceXMLs(yamlFile)
+        }
+    }
+
 
     log.Log.Println("finished writting lookupData")
     return nil

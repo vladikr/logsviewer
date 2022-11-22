@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/websocket v1.5.0
+	gopkg.in/yaml.v3 v3.0.0
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v0.23.5
