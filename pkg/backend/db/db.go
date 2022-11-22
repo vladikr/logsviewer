@@ -337,7 +337,79 @@ func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{
         limit = " limit " + strconv.Itoa((page - 1) * perPage) + ", " + strconv.Itoa(perPage)  
     }
 
-	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime from pods"
+	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"
+    
+    log.Log.Println("getting pods: ", queryString + limit)
+
+	stmt, err := d.db.PrepareContext(ctx, queryString + limit)
+	if err != nil {
+		return response, err
+	}
+	defer stmt.Close()
+
+
+	rows, err := stmt.Query() 
+	if err != nil {
+		return response, err
+	}
+
+	defer rows.Close()
+
+
+
+    columns, err := rows.Columns()
+	if err != nil {
+		return response, err
+	}
+	data     := []map[string]interface{}{}
+    count    := len(columns)
+    values   := make([]interface{}, count)
+    scanArgs := make([]interface{}, count)
+
+    for i := range values {
+        scanArgs[i] = &values[i]
+    }
+
+    for rows.Next() {
+        err := rows.Scan(scanArgs...)
+        if err != nil {
+			return response, err
+		}
+		tbRecord := map[string]interface{}{}
+        for i, col := range columns {
+           v     := values[i]
+           b, ok := v.([]byte)
+           if (ok) {
+               tbRecord[col] = string(b)
+           } else {
+               tbRecord[col] = v
+           }
+        }
+        data = append(data, tbRecord)
+
+    } 
+
+	meta, err := d.getMeta(page, perPage, queryString)
+	if err != nil {
+		return nil, err
+	}
+	response["data"] = data
+	response["meta"] = meta
+    log.Log.Println("gettin pods response: ", response)
+    return response, nil 
+}
+
+func (d *databaseInstance) GetVmis(page int, perPage int) (map[string]interface{}, error) {
+	response := map[string]interface{}{}
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	limit := " "
+    if perPage != -1 {
+        limit = " limit " + strconv.Itoa((page - 1) * perPage) + ", " + strconv.Itoa(perPage)  
+    }
+
+	queryString := "select uuid, name, namespace, phase, reason, nodeName, creationTime from vmis"
 
 
 	stmt, err := d.db.PrepareContext(ctx, queryString + limit)
@@ -348,7 +420,6 @@ func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{
 
 
 	rows, err := stmt.Query() 
-//	_, err = stmt.ExecContext(ctx)
 	if err != nil {
 		return response, err
 	}
@@ -397,38 +468,3 @@ func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{
 	response["meta"] = meta
     return response, nil 
 }
-
-/*func (d *databaseInstance) StoreObjectChange(object *Object, content json.RawMessage) error {
-	// TimeString - given a time, return the MySQL standard string representation
-	madeAt := time.Now().Format("2006-01-02 15:04:05.999999")
-	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
-	defer cancel()
-
-	stmt, err := d.db.PrepareContext(ctx, insertObjectQuery)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.ExecContext(ctx, object.Key, object.Kind, object.Name, object.Namespace, object.UUID)
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel = context.WithTimeout(d.ctx, 1*time.Second)
-	defer cancel()
-
-	stmt, err = d.db.PrepareContext(ctx, insertObjectChangeQuery)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.ExecContext(ctx, object.Key, madeAt, object.UUID, content)
-	if err != nil {
-		return err
-	}
-
-	return nil
-} */
-
