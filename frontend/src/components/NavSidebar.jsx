@@ -92,6 +92,12 @@ export const NavSidebar = () => {
                   // elemBefore: () => <Icon name="calendar" />
                 },
                 {
+                  title: "Migrations",
+                  itemId: "/workloads/vmims"
+                  // Optional
+                  // elemBefore: () => <Icon name="calendar" />
+                },
+                {
                   title: "Pods",
                   itemId: "/workloads/pods"
                   // elemBefore: () => <Icon name="calendar" />

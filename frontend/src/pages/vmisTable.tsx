@@ -16,19 +16,18 @@ import {
   useInfiniteQuery
 } from "@tanstack/react-query";
 import { useVirtual } from "react-virtual";
-export type Pod = {
+export type Vmi = {
     uuid: string;
     name: string;
     namespace: string;
     phase: string;
-    activeContainers: number;
-    totalContainers: number;
+    reason: string;
+    nodeName: string;
     creationTime: Date;
-    createdBy: string;
 };
 
-type PodsApiResponse = {
-    data: Pod[];
+type VmisApiResponse = {
+    data: Vmi[];
     meta: {
         totalRowCount: number;
     }
@@ -37,12 +36,12 @@ type PodsApiResponse = {
 
 const fetchSize = 25;
 
-export const PodsTable = () => {
+export const VmisTable = () => {
     //const [data, setData] = useState([]);
     const rerender = React.useReducer(() => ({}), {})[1];
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
-    const columns = React.useMemo<ColumnDef<Pod>[]>(
+    const columns = React.useMemo<ColumnDef<Vmi>[]>(
         () => [
           {
             accessorKey: "uuid",
@@ -52,8 +51,7 @@ export const PodsTable = () => {
           {
             accessorKey: "name",
             cell: (info) => info.getValue(),
-            header: () => <span>Name</span>,
-            size: 100
+            header: () => <span>Name</span>
           },
           {
             accessorKey: "namespace",
@@ -66,14 +64,9 @@ export const PodsTable = () => {
             header: () => <span>Phase</span>
           },
           {
-            accessorKey: "activeContainers",
-            header: () => <span>Active Containers</span>,
-            size: 80
-          },
-          {
-            accessorKey: "totalContainers",
-            header: () => <span>Total Containers</span>,
-            size: 80
+            accessorKey: "reason",
+            cell: (info) => info.getValue(),
+            header: () => <span>Reason</span>
           },
           {
             accessorKey: "creationTime",
@@ -81,9 +74,9 @@ export const PodsTable = () => {
             cell: (info) => info.getValue()
           },
           {
-            accessorKey: "createdBy",
+            accessorKey: "nodeName",
             cell: (info) => info.getValue(),
-            header: () => <span>CreatedBy</span>
+            header: () => <span>NodeName</span>
           }
         ],
         []
@@ -93,7 +86,7 @@ export const PodsTable = () => {
 		start: number,
 		size: number
 	) => {
-        return axios.get("/pods",
+        return axios.get("/vmis",
             {
                 params: {
                     page: start,
@@ -109,12 +102,11 @@ export const PodsTable = () => {
 
   //react-query has an useInfiniteQuery hook just for this situation!
   const { data, fetchNextPage, isFetching, isLoading } = useInfiniteQuery<
-    PodsApiResponse
+    VmisApiResponse
   >(
     ["table-data"], //adding sorting state as key causes table to reset and fetch from new beginning upon sort
 	async ({ pageParam = 0 }) => {
       const start = pageParam;
-
       const fetchedData = fetchData(start, fetchSize);
       return fetchedData;
     },
@@ -125,6 +117,7 @@ export const PodsTable = () => {
     }
   );
 
+  //we must flatten the array of arrays from the useInfiniteQuery hook
   const flatData = React.useMemo(
     () => {
         const mData = data?.pages?.flatMap((page) => page.data) ?? []
@@ -132,7 +125,7 @@ export const PodsTable = () => {
             return mData;
         } 
         return Object.values(
-            mData.reduce<Record<string, Pod>>((c, v) => {
+            mData.reduce<Record<string, Vmi>>((c, v) => {
             if (v.hasOwnProperty('uuid')) {
                 c[v.uuid] = v;
             }
@@ -144,7 +137,6 @@ export const PodsTable = () => {
   const totalDBRowCount = data?.pages?.[0]?.meta?.totalRowCount ?? 0;
   const totalFetched = flatData.length;
 
-
   //called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
   const fetchMoreOnBottomReached = React.useCallback(
     (containerRefElement?: HTMLDivElement | null) => {
@@ -152,7 +144,7 @@ export const PodsTable = () => {
         const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
         //once the user has scrolled within 300px of the bottom of the table, fetch more data if there is any
         if (
-          scrollHeight - scrollTop - clientHeight < 10 &&
+          scrollHeight - scrollTop - clientHeight < 300 &&
           !isFetching &&
           totalFetched < totalDBRowCount
         ) {
@@ -246,7 +238,7 @@ export const PodsTable = () => {
               </tr>
             )}
             {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index] as Row<Pod>;
+              const row = rows[virtualRow.index] as Row<Vmi>;
               return (
                 <tr key={row.id}>
                   {row.getVisibleCells().map((cell) => {

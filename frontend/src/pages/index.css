@@ -32,7 +32,7 @@ td {
 .container {
   border: 1px solid rgb(211, 211, 211);
   height: 500px;
-  max-width: 1200px !important;
+  max-width: 90% !important;
   overflow: auto;
 }
 
