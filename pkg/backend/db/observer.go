@@ -18,7 +18,6 @@ import (
 func NewObjectStore() *ObjectStore {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "objectStore")
-	//db := NewDatabaseInstance()
 	c := &ObjectStore{
 		Queue:             queue,
 		lockDBConn:        &sync.Mutex{},
@@ -172,6 +171,7 @@ func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
         Reason:     string(vmi.Status.Reason),    
         NodeName: string(vmi.Status.NodeName),
         CreationTime: vmi.CreationTimestamp,
+        Status: vmi.Status,
         Content: jsonBytes,
 	}
 	if err := d.storeDB.StoreVmi(storeObj); err != nil {
@@ -181,6 +181,32 @@ func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
 	return nil
 }
 
+func (d *ObjectStore) storeVmiMigration(vmim *kubevirtv1.VirtualMachineInstanceMigration) error {
+    jsonBytes, err := json.Marshal(vmim)
+    if err != nil {
+        log.Log.Println("failed to marshal vmi migration object ", vmim, " err: ", err)
+    }
+    log.Log.Println("Marshaled VMIM YAML: ", string(jsonBytes))
+
+    name := vmim.GetObjectMeta().GetName()
+    namespace := vmim.GetObjectMeta().GetNamespace()
+    uid := string(vmim.GetObjectMeta().GetUID())
+	storeObj := &VirtualMachineInstanceMigration{
+		Name:      name,
+		Namespace: namespace,
+		UUID:      uid,
+        Phase:     string(vmim.Status.Phase),    
+        VMIName: string(vmim.Spec.VMIName),
+        CreationTime: vmim.CreationTimestamp,
+        Content: jsonBytes,
+	}
+    log.Log.Println("storeObj VMIM YAML: ", storeObj)
+	if err := d.storeDB.StoreVmiMigration(storeObj); err != nil {
+        log.Log.Println("failed to store vmi migration obj  ", storeObj, " err: ", err)
+		return err
+	}
+	return nil
+}
 
 func (d *ObjectStore) processObject(obj interface{}) {
 	switch obj.(type) {
@@ -193,6 +219,11 @@ func (d *ObjectStore) processObject(obj interface{}) {
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
 		if err := d.storeVmi(vmi); err == nil {
             log.Log.Println("stored vmi obj  ", vmi)
+        }
+	case *kubevirtv1.VirtualMachineInstanceMigration:
+		vmim := obj.(*kubevirtv1.VirtualMachineInstanceMigration)
+		if err := d.storeVmiMigration(vmim); err == nil {
+            log.Log.Println("stored vmi migration obj  ", vmim)
         }
 	default:
 		jsonBytes, err := json.Marshal(obj)
@@ -216,6 +247,11 @@ func (d *ObjectStore) Add(obj interface{}) {
         
         d.wg.Add(1)    
 	    d.Queue.Add(vmi)
+	case *kubevirtv1.VirtualMachineInstanceMigration:
+		vmim := obj.(*kubevirtv1.VirtualMachineInstanceMigration)
+        
+        d.wg.Add(1)    
+	    d.Queue.Add(vmim)
 	default:
 		log.Log.Println("Cannot store unsupported obj ", v)
     }

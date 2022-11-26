@@ -164,6 +164,53 @@ func getVmis(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Vmi migrations Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+	currentPage := 1
+
+    page, err   := strconv.Atoi(fmt.Sprint(params["page"]))
+    if err == nil {
+        if page >= 1 {
+            currentPage = page
+        }
+    }
+
+    pageSize := -1
+    perPage, err := strconv.Atoi(fmt.Sprint(params["per_page"]))
+    if err == nil {
+        if perPage >= 1 {
+            pageSize = perPage
+        }  
+    }
+
+    dbInst, err := db.NewDatabaseInstance()
+    if err != nil {
+        log.Log.Println("failed to connect to database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer dbInst.Shutdown()
+
+	data, err := dbInst.GetVmiMigrations(currentPage, pageSize)
+    if err != nil {
+        log.Log.Println("failed to get pods!", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(data); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
 func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
     log.Log.Println("File Upload Endpoint Hit")
@@ -229,11 +276,15 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
         }
         logsHandler := NewLogsHandler()
         defer close(logsHandler.stopCh)
-        if err := logsHandler.processPodXMLs(); err != nil {
+        if err := logsHandler.processPodYAMLs(); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
-        if err := logsHandler.processVirtualMachineInstanceXMLs(); err != nil {
+        if err := logsHandler.processVirtualMachineInstanceMigrationsYAMLs(); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        if err := logsHandler.processVirtualMachineInstanceYAMLs(); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
@@ -258,6 +309,7 @@ func SetupRoutes(publicDir string) *http.ServeMux {
   mux.HandleFunc("/uploadLogs", uploadLogs)
   mux.HandleFunc("/pods", getPods)
   mux.HandleFunc("/vmis", getVmis)
+  mux.HandleFunc("/vmims", getVmiMigrations)
   log.Log.Println("Routes set")
   return mux
 
