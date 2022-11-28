@@ -8,6 +8,7 @@ import {
   ColumnDef,
   Row,
   flexRender,
+  ColumnResizeMode,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable
@@ -41,7 +42,12 @@ type VmiMigrationsApiResponse = {
 
 const fetchSize = 25;
 
-export const VmiMigrationsTable = () => {
+interface VmiMigrationsTableProps {
+    namespace?: string;
+    name?: string;
+}
+
+export const VmiMigrationsTable = ({name, namespace}: VmiMigrationsTableProps) => {
     const rerender = React.useReducer(() => ({}), {})[1];
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
@@ -119,7 +125,9 @@ export const VmiMigrationsTable = () => {
             {
                 params: {
                     page: start,
-                    per_page: size
+                    per_page: size,
+                    name: {name},
+                    namespace: {namespace}
                 }
             }).then(function (resp) {
                 return {
@@ -189,9 +197,13 @@ export const VmiMigrationsTable = () => {
     fetchMoreOnBottomReached(tableContainerRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const [columnResizeMode, setColumnResizeMode] =
+    React.useState<ColumnResizeMode>('onChange')
+
   const table = useReactTable({
     data: flatData,
     columns,
+    columnResizeMode,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     debugTable: true
@@ -241,7 +253,9 @@ export const VmiMigrationsTable = () => {
                             className: header.column.getCanSort()
                               ? "cursor-pointer select-none"
                               : "",
-                            onClick: header.column.getToggleSortingHandler()
+                            onClick: header.column.getToggleSortingHandler(),
+                            onMouseDown: header.getResizeHandler(),
+                            onTouchStart: header.getResizeHandler(),
                           }}
                         >
                           {flexRender(
@@ -272,7 +286,7 @@ export const VmiMigrationsTable = () => {
                 <tr key={row.id}>
                   {row.getVisibleCells().map((cell) => {
                     return (
-                      <td key={cell.id}>
+                      <td key={cell.id} style={{width: cell.column.getSize()}}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()

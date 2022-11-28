@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import axios from 'axios';
 //import { Pod, PodsApiResponse } from './podObject';
 import "./index.css";
+import {VmiMigrationsTable} from './vmimsTable';
 
 //3 TanStack Libraries!!!
 import {
   ColumnDef,
   Row,
   flexRender,
+  getExpandedRowModel,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable
 } from "@tanstack/react-table";
 import {
+  QueryClient,
+  QueryClientProvider,
   useInfiniteQuery
 } from "@tanstack/react-query";
 import { useVirtual } from "react-virtual";
@@ -43,6 +47,25 @@ export const VmisTable = () => {
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
     const columns = React.useMemo<ColumnDef<Vmi>[]>(
         () => [
+          {
+            id: 'expander',
+            header: () => null,
+            cell: ({ row }) => {
+                return row.getCanExpand() ? (
+                    <button
+                        {...{
+                            onClick: row.getToggleExpandedHandler(),
+                            style: { cursor: 'pointer' },
+                        }}
+                    >
+                        {row.getIsExpanded() ? '-' : '+'}
+                    </button>
+                ) : (
+                    '🔵'
+                )
+            },
+          },
+      
           {
             accessorKey: "uuid",
             cell: (info) => info.getValue(),
@@ -163,8 +186,10 @@ export const VmisTable = () => {
   const table = useReactTable({
     data: flatData,
     columns,
+    getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     debugTable: true
   });
 
@@ -176,6 +201,22 @@ export const VmisTable = () => {
     size: rows.length,
     overscan: 10
   });
+  
+  const renderSubComponent = ({ row }: { row: Row<Vmi> }) => {
+    const queryClient = new QueryClient();
+  return (
+    
+      <React.StrictMode>
+		<QueryClientProvider client={queryClient}>
+            <VmiMigrationsTable name={row.original.name} namespace={row.original.namespace}/>
+		</QueryClientProvider>
+      </React.StrictMode>
+    /*<pre style={{ fontSize: '10px' }}>
+      <code>{JSON.stringify(row.original, null, 2)}</code>
+      
+    </pre>*/
+  )
+}
   const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
   const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
   const paddingBottom =
@@ -240,18 +281,29 @@ export const VmisTable = () => {
             {virtualRows.map((virtualRow) => {
               const row = rows[virtualRow.index] as Row<Vmi>;
               return (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => {
-                    return (
-                      <td key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                <Fragment key={row.id}>
+                    <tr>
+                      {/* first row is a normal row */}
+                      {row.getVisibleCells().map(cell => {
+                        return (
+                          <td key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    {row.getIsExpanded() && (
+                      <tr>
+                        {/* 2nd row is a custom 1 cell row */}
+                        <td colSpan={row.getVisibleCells().length}>
+                          {renderSubComponent({ row })}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
               );
             })}
             {paddingBottom > 0 && (
