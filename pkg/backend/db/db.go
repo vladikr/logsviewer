@@ -70,6 +70,19 @@ type (
         //HandlerPod  string `json:"handlerName"`
 		Content json.RawMessage `json:"content"`
 	}
+
+	QueryResults struct {
+        Namespace   string
+        SourcePodUUID     string
+        TargetPodUUID     string
+        VMIUUID         string
+        SourcePod string
+        TargetPod string
+        StartTimestamp time.Time
+        EndTimestamp time.Time
+        SourceHandler string
+        TargetHandler string
+	}
 )
 
 func (d *databaseInstance) StorePod(pod *Pod) error {
@@ -446,6 +459,52 @@ func (d *databaseInstance) getMeta(page int, perPage int, queryString string) (m
     return meta, nil
 }
 
+/*func (d *databaseInstance) getMigrationQueryParams(vmiUUID string) (map[string]interface{}, error) {
+	podQueryString := "select uuid, name, namespace, creationTime from pods where createdBy=%s AND nodeName=%s"
+	queryString := "select name, namespace, phase, reason, nodeName, creationTime from vmis"
+    resultsMap, err := d.genericGet(queryString, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+    return resultsMap, nil 
+}*/
+
+func (d *databaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
+    results := QueryResults{VMIUUID: vmiUUID}
+	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where createdBy='%s' AND nodeName='%s'", vmiUUID, nodeName)
+	virtHandlerQueryString := fmt.Sprintf("select name from pods where nodeName='%s' AND name like 'virt-handler%%'", nodeName)
+
+
+    // get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString) 
+    err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("getVMIQueryParams can't find anything with this uuid: ", vmiUUID)
+            return results, err
+        } else {
+            log.Log.Println("getVMIQueryParams ERROR: ", err, " for uuid: ", vmiUUID)
+            return results, err
+        }
+    } 
+    
+    // get the relevant virt-handler
+	rows = d.db.QueryRow(virtHandlerQueryString) 
+    err = rows.Scan(&results.SourceHandler)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("getVMIQueryParams can't find virt-handler on node: ", nodeName)
+            return results, err
+        } else {
+            log.Log.Println("getVMIQueryParams ERROR: ", err, " for nodeName: ", nodeName)
+            return results, err
+        }
+    } 
+
+//    startTimeStr := []string{startTime.Format("2006-01-02T15:04:05Z07:00")}
+
+    return results, nil 
+}
 
 func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"

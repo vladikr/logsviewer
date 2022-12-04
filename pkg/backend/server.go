@@ -6,6 +6,7 @@ import (
     "io"
     "os"
     "errors"
+    "time"
     "encoding/json"
     "io/ioutil"
     "strconv"
@@ -211,6 +212,112 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func formatSingleVMIDSLQuery(res db.QueryResults) string {
+//2022-08-17T23:00:00.000Z
+//queryTemplate := ```(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:'%s'))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!t,params:(query:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.')))),interval:auto,query:(language:kuery,query:'containerName:%%20%%22virt-controller%%22%%20or%%20containerName:%%20%%22virt-api%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20%%22%s%%22%%20or%%20%%22%s%%22'),sort:!(!('@timestamp',asc)))```
+
+    queryTemplate := `_q=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:now))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
+
+
+    timeStamp := res.StartTimestamp.Format(time.RFC3339)
+
+    vmiLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, res.SourcePod, res.SourceHandler, res.SourcePodUUID, res.VMIUUID)
+
+    return vmiLogsQuery
+}
+
+
+func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get VMI Query Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+	//currentPage := 1
+    
+    vmiUUID, exist := params["vmiUUID"]
+    if !exist {
+        log.Log.Println("can't find uuid in query params")
+		http.Error(w, "can't find uuid in query params", http.StatusInternalServerError)
+        return
+    }
+    nodeName, exist := params["nodeName"]
+    if !exist {
+        log.Log.Println("can't find nodeName in query params")
+		http.Error(w, "can't find nodeName in query params", http.StatusInternalServerError)
+        return
+    }
+
+    dbInst, err := db.NewDatabaseInstance()
+    if err != nil {
+        log.Log.Println("failed to connect to database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer dbInst.Shutdown()
+    vmiUUIDStr := fmt.Sprintf("%s", vmiUUID)
+    nodeNameStr := fmt.Sprintf("%s", nodeName)
+
+	data, err := dbInst.GetVMIQueryParams(vmiUUIDStr, nodeNameStr)
+    if err != nil {
+        log.Log.Println("failed to fetch VMI params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    dslQuery := formatSingleVMIDSLQuery(data)
+    resp := map[string]string{"dslQuery": dslQuery}
+    log.Log.Println("getVMIQueryParams encoded: ", resp)
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(resp); err1 != nil {
+        log.Log.Println("getVMIQueryParams error: ", err1)
+        fmt.Println(err1.Error())
+    }    
+    log.Log.Println("getVMIQueryParams encoded: ", resp)
+}
+
+/*func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Migration Query Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+	currentPage := 1
+
+    migrationUUID, err   := strconv.Atoi(fmt.Sprint(params["uuid"]))
+    if err != nil {
+        log.Log.Println("failed to connect to database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    dbInst, err := db.NewDatabaseInstance()
+    if err != nil {
+        log.Log.Println("failed to connect to database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer dbInst.Shutdown()
+
+	data, err := dbInst.getMigrationQueryParams(migrationUUID)
+    if err != nil {
+        log.Log.Println("failed to fetch migration params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(data); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}*/
+
 func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
     log.Log.Println("File Upload Endpoint Hit")
@@ -310,6 +417,8 @@ func SetupRoutes(publicDir string) *http.ServeMux {
   mux.HandleFunc("/pods", getPods)
   mux.HandleFunc("/vmis", getVmis)
   mux.HandleFunc("/vmims", getVmiMigrations)
+  mux.HandleFunc("/getVMIQueryParams", getVMIQueryParams)
+  //mux.HandleFunc("/getMigrationQueryParams", getMigrationQueryParams)
   log.Log.Println("Routes set")
   return mux
 
