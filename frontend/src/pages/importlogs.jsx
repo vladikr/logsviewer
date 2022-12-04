@@ -1,9 +1,13 @@
 import React, {useState} from 'react';
 import axios from 'axios';
 import {DashboardLayout} from '../components/Layout';
+import {LoadingSpinner} from '../components/Spinner';
 
 const ImportLogsPage = () => {
   const [file, setFile] = useState()
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   function handleChange(event) {
     setFile(event.target.files[0])
   }
@@ -19,21 +23,28 @@ const ImportLogsPage = () => {
         'content-type': 'multipart/form-data',
       },
     };
+    setIsLoading(true);
     axios.post(url, formData, config).then((response) => {
       console.log(response.data);
+      setIsLoading(false);
     }).catch(error => {
-    console.log(error.response)
+        setErrorMessage(`Unable to load logs: ${error.response}`);
+        setIsLoading(false);
+        console.log(error.response)
 });
 
   }
-
-  return (
-    <DashboardLayout>
+  const uploadForm = (
       <form onSubmit={handleSubmit}>
           <h1>Import Logs</h1>
           <input type="file" onChange={handleChange}/>
           <button type="submit">Upload</button>
         </form>
+    );
+  return (
+    <DashboardLayout>
+        {isLoading ? <LoadingSpinner />: uploadForm}
+        {errorMessage && <div className="error">{errorMessage}</div>}
     </DashboardLayout>
   )
 }

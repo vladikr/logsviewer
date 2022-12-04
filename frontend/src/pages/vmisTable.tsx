@@ -3,6 +3,7 @@ import axios from 'axios';
 //import { Pod, PodsApiResponse } from './podObject';
 import "./index.css";
 import {VmiMigrationsTable} from './vmimsTable';
+import Icon from "awesome-react-icons";
 
 //3 TanStack Libraries!!!
 import {
@@ -41,15 +42,57 @@ type VmisApiResponse = {
 const fetchSize = 25;
 
 export const VmisTable = () => {
-    //const [data, setData] = useState([]);
     const rerender = React.useReducer(() => ({}), {})[1];
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
+    const fetchDSLQuery = async (
+		vmiUUID: string,
+		nodeName: string
+	) => {
+        const retq = await axios.get("/getVMIQueryParams",
+            {
+                params: {
+                    vmiUUID: vmiUUID,
+                    nodeName: nodeName
+                }
+            }).then(function (resp) {
+                console.log("await2: ", resp.data.dslQuery)
+                const hostname = window.location.hostname
+                const kibanaHostname = "kibana." + hostname.split('.').slice(1).join('.');
+                
+                window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
+                return {
+                    query: resp.data.dslQuery, 
+                };
+            })
+            
+            return retq
+    }
+    const openInNewTab = ({ row }: { row: Row<Vmi> }) => {
+        fetchDSLQuery(row.original.uuid, row.original.nodeName);
+    }
     const columns = React.useMemo<ColumnDef<Vmi>[]>(
         () => [
           {
+            id: 'reporter',
+            header: () => null,
+            size: 20,
+            cell: ({ row }) => {
+                return (
+                    <button
+                        {...{
+                            onClick: () => openInNewTab({row}),
+                            style: { cursor: 'pointer' },
+                        }}
+                    >   <Icon name="external-link"/>
+                    </button>
+                )
+            },
+          },
+          {
             id: 'expander',
             header: () => null,
+            size: 20,
             cell: ({ row }) => {
                 return row.getCanExpand() ? (
                     <button
@@ -58,14 +101,13 @@ export const VmisTable = () => {
                             style: { cursor: 'pointer' },
                         }}
                     >
-                        {row.getIsExpanded() ? '-' : '+'}
+                        {row.getIsExpanded() ? <Icon name="minus"/> : <Icon name="plus"/>}
                     </button>
                 ) : (
                     '🔵'
                 )
             },
           },
-      
           {
             accessorKey: "uuid",
             cell: (info) => info.getValue(),

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-//import { Pod, PodsApiResponse } from './podObject';
 import "./index.css";
+import Icon from "awesome-react-icons";
 
 //3 TanStack Libraries!!!
 import {
@@ -49,10 +49,29 @@ interface VmiMigrationsTableProps {
 
 export const VmiMigrationsTable = ({name, namespace}: VmiMigrationsTableProps) => {
     const rerender = React.useReducer(() => ({}), {})[1];
+    const openInNewTab = ({ row }: { row: Row<VmiMigration> }) => {
+            window.open(`http://www.google.com/search?q=${row.original.name}`, '_blank', 'noopener,noreferrer');
+    }
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
     const columns = React.useMemo<ColumnDef<VmiMigration>[]>(
         () => [
+          {
+            id: 'reporter',
+            header: () => null,
+            size: 20,
+            cell: ({ row }) => {
+                return (
+                    <button
+                        {...{
+                            onClick: () => openInNewTab({row}),
+                            style: { cursor: 'pointer' },
+                        }}
+                    >   <Icon name="external-link"/>
+                    </button>
+                )
+            },
+          },
           {
             accessorKey: "uuid",
             cell: (info) => info.getValue(),
