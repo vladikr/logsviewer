@@ -21,6 +21,30 @@ spec:
   selector:
     app.kubernetes.io/name: logsviewer
 ---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: logviewer
+spec:
+  subdomain: logsviewer
+  port:
+    targetPort: 8080
+  to:
+    kind: Service
+    name: logsviewer
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: kibana
+spec:
+  subdomain: kibana
+  port:
+    targetPort: 5601
+  to:
+    kind: Service
+    name: logsviewer
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -104,7 +128,7 @@ data:
     }
     output {                                               
       elasticsearch {            
-        hosts => ["localhost"]       
+        hosts => ["localhost:9200"]       
         manage_template => false                           
         index => "cnvlogs-%{+YYYY.MM.dd}"                          
         document_type => "%{[@metadata][type]}"
@@ -120,67 +144,15 @@ metadata:
     app.kubernetes.io/name: logsviewer
 spec:
   containers:
-  - name: mysql
-    image: mysql:5.7
-    imagePullPolicy: IfNotPresent
-    env:
-      - name: MYSQL_ROOT_PASSWORD
-        value: supersecret
-      - name: MYSQL_USER
-        value: mysql
-      - name: MYSQL_PASSWORD
-        value: supersecret
-      - name: MYSQL_DATABASE
-        value: objtracker
-    args:
-      - --ignore-db-dir=lost+found
-    ports:
-      - containerPort: 3306
-        name: mysql
-        protocol: TCP
-    volumeMounts:
-      - mountPath: /var/lib/mysql
-        name: mysql-storage
-  - name: kibana-logging
-    image: docker.elastic.co/kibana/kibana:8.1.0
-    resources:
-      # need more cpu upon initialization, therefore burstable class
-      limits:
-        cpu: 1000m
-      requests:
-        cpu: 100m
-    env:
-      - name: ELASTICSEARCH_URL
-        value: http://localhost:9200
-    ports:
-    - containerPort: 5601
-      name: ui
-      protocol: TCP
-    volumeMounts:
-    - name: kibana-cfg
-      mountPath: /usr/share/kibana/config/kibana.yml
-      subPath: kibana.yml
-  - name: logsviewer
-    image: quay.io/vladikr/logsviewer
-    command: ["/backend"]
-    ports:
-    - containerPort: 8080
-    volumeMounts:
-      - name: logstore
-        mountPath: /space
-  - name: logstash
-    image: docker.elastic.co/logstash/logstash:8.1.0
-    ports:
-    - containerPort: 5044
-    volumeMounts:
-      - name: config-volume
-        mountPath: /usr/share/logstash/config
-      - name: logstash-pipeline-volume
-        mountPath: /usr/share/logstash/pipeline
-      - name: logstore
-        mountPath: /space
   - image: docker.elastic.co/elasticsearch/elasticsearch:8.1.0
     name: elasticsearch-logging
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
+#          - >
+#              sh -c >
+#                counter=0; while [ ! "$(/usr/bin/curl -k 'http://localhost:9200' 2> /dev/null)" -a $counter -lt 30  ]; do sleep 2; ((counter++)); echo "waiting for Elasticsearch to be up ($counter/30)"; done
     resources:
       # need more cpu upon initialization, therefore burstable class
       limits:
@@ -205,6 +177,66 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
+  - name: mysql
+    image: mysql:5.7
+    imagePullPolicy: IfNotPresent
+    env:
+      - name: MYSQL_ROOT_PASSWORD
+        value: supersecret
+      - name: MYSQL_USER
+        value: mysql
+      - name: MYSQL_PASSWORD
+        value: supersecret
+      - name: MYSQL_DATABASE
+        value: objtracker
+    args:
+      - --ignore-db-dir=lost+found
+    ports:
+      - containerPort: 3306
+        name: mysql
+        protocol: TCP
+    volumeMounts:
+      - mountPath: /var/lib/mysql
+        name: mysql-storage
+  - name: logsviewer
+    image: quay.io/vladikr/logsviewer:devel
+    imagePullPolicy: Always
+    command: ["/backend"]
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+      - name: logstore
+        mountPath: /space
+  - name: kibana-logging
+    image: docker.elastic.co/kibana/kibana:8.1.0
+    resources:
+      # need more cpu upon initialization, therefore burstable class
+      limits:
+        cpu: 1000m
+      requests:
+        cpu: 100m
+    env:
+      - name: ELASTICSEARCH_URL
+        value: http://localhost:9200
+    ports:
+    - containerPort: 5601
+      name: ui
+      protocol: TCP
+    volumeMounts:
+    - name: kibana-cfg
+      mountPath: /usr/share/kibana/config/kibana.yml
+      subPath: kibana.yml
+  - name: logstash
+    image: docker.elastic.co/logstash/logstash:8.1.0
+    ports:
+    - containerPort: 5044
+    volumeMounts:
+      - name: config-volume
+        mountPath: /usr/share/logstash/config
+      - name: logstash-pipeline-volume
+        mountPath: /usr/share/logstash/pipeline
+      - name: logstore
+        mountPath: /space
   volumes:
   - name: config-volume
     configMap:
@@ -244,7 +276,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: elasticsearch
 spec:
-  storageClassName: odf-lvm-vg1
+  storageClassName: ocs-storagecluster-cephfs
   accessModes:
   - ReadWriteOnce
   resources:
