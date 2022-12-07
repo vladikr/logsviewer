@@ -31,8 +31,8 @@ td {
 
 .container {
   border: 1px solid rgb(211, 211, 211);
-  height: 500px;
-  max-width: 90% !important;
+  height: 600px;
+  width: 90% !important;
   overflow: auto;
 }
 

@@ -2,11 +2,17 @@ import React, {useState} from 'react';
 import axios from 'axios';
 import {DashboardLayout} from '../components/Layout';
 import {LoadingSpinner} from '../components/Spinner';
+import Modal from "react-bootstrap/Modal";
+import Button from 'react-bootstrap/Button';
 
 const ImportLogsPage = () => {
   const [file, setFile] = useState()
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [show, setShow] = useState(true);
+
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
 
   function handleChange(event) {
     setFile(event.target.files[0])
@@ -38,13 +44,28 @@ const ImportLogsPage = () => {
       <form onSubmit={handleSubmit}>
           <h1>Import Logs</h1>
           <input type="file" onChange={handleChange}/>
-          <button type="submit">Upload</button>
+          <Button type="submit" variant="primary">Upload</Button>
         </form>
     );
   return (
     <DashboardLayout>
-        {isLoading ? <LoadingSpinner />: uploadForm}
-        {errorMessage && <div className="error">{errorMessage}</div>}
+        <Modal 
+        size="lg"
+        aria-labelledby="contained-modal-title-vcenter"
+        centered
+        show={show}
+        onHide={handleClose}
+        //backdrop="static"
+        //keyboard={false}
+      >
+            <Modal.Header closeButton>
+              <Modal.Title>Upload Logs</Modal.Title>
+            </Modal.Header> 
+            <Modal.Body>
+                {isLoading ? <LoadingSpinner />: uploadForm}
+                {errorMessage && <div className="error">{errorMessage}</div>}
+            </Modal.Body>
+      </Modal>
     </DashboardLayout>
   )
 }
