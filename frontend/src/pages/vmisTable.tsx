@@ -58,7 +58,14 @@ export const VmisTable = () => {
             }).then(function (resp) {
                 console.log("await2: ", resp.data.dslQuery)
                 const hostname = window.location.hostname
-                const kibanaHostname = "kibana." + hostname.split('.').slice(1).join('.');
+                const hostnameParts = hostname.split('.');
+                const ingress = hostnameParts.slice(1).join('.');
+                const appNameParts = hostnameParts.slice(0, 1).split('-');
+                let suffix = ""
+                if (appNameParts.length > 1) {
+                    suffix = "-" + appNameParts.slice(1);
+                }
+                const kibanaHostname = "kibana" + suffix + "." + ingress;
                 
                 window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
                 return {

@@ -43,8 +43,8 @@ type VmiMigrationsApiResponse = {
 const fetchSize = 25;
 
 interface VmiMigrationsTableProps {
-    namespace?: string;
-    name?: string;
+    namespace?: string,
+    name?: string
 }
 
 export const VmiMigrationsTable = ({name, namespace}: VmiMigrationsTableProps) => {
@@ -140,8 +140,11 @@ export const VmiMigrationsTable = ({name, namespace}: VmiMigrationsTableProps) =
 		start: number,
 		size: number
 	) => {
+        console.log("name obj: ", {name} )
+        console.log("namespace obj: ", {namespace} )
         return axios.get("/vmims",
             {
+                
                 params: {
                     page: start,
                     per_page: size,

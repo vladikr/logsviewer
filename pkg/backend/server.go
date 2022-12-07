@@ -6,10 +6,12 @@ import (
     "io"
     "os"
     "errors"
-    "time"
+    //"time"
+    "bytes"
     "encoding/json"
     "io/ioutil"
     "strconv"
+    //"strings"
 
     "logsviewer/pkg/backend/log"
     "logsviewer/pkg/backend/db"
@@ -55,6 +57,7 @@ func reader(conn *websocket.Conn) {
 
     }
 }
+
 
 // define our WebSocket endpoint
 func serveWs(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +174,17 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
 	for k, v := range r.URL.Query() {
             params[k] = v[0]
     }
+    vmiDetails := db.VMIMigrationQueryDetails{}
+    if vmiName, exist := params["name"]; exist {
+        log.Log.Println("vmiName: ", vmiName)
+        json.Unmarshal([]byte(fmt.Sprint(vmiName)), &vmiDetails)
+        log.Log.Println("vmiDetails: ", vmiDetails)
+    }
+    if vmiNamespace, exist := params["namespace"]; exist {
+        log.Log.Println("Namespace: ", vmiNamespace)
+        json.Unmarshal([]byte(fmt.Sprint(vmiNamespace)), &vmiDetails)
+        log.Log.Println("vmiDetails: ", vmiDetails)
+    }
 
 	currentPage := 1
 
@@ -197,7 +211,7 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     }
     defer dbInst.Shutdown()
 
-	data, err := dbInst.GetVmiMigrations(currentPage, pageSize)
+	data, err := dbInst.GetVmiMigrations(currentPage, pageSize, &vmiDetails)
     if err != nil {
         log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -216,11 +230,13 @@ func formatSingleVMIDSLQuery(res db.QueryResults) string {
 //2022-08-17T23:00:00.000Z
 //queryTemplate := ```(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:'%s'))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!t,params:(query:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.')))),interval:auto,query:(language:kuery,query:'containerName:%%20%%22virt-controller%%22%%20or%%20containerName:%%20%%22virt-api%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20%%22%s%%22%%20or%%20%%22%s%%22'),sort:!(!('@timestamp',asc)))```
 
-    queryTemplate := `_q=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:now))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
+    queryTemplate := `_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:now))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
 
 
-    timeStamp := res.StartTimestamp.Format(time.RFC3339)
-
+//    timeStamp := res.StartTimestamp.Format(time.RFC3339)
+    
+    timeStamp := fmt.Sprintf("%sZ", res.StartTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
+    
     vmiLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, res.SourcePod, res.SourceHandler, res.SourcePodUUID, res.VMIUUID)
 
     return vmiLogsQuery

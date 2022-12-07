@@ -198,15 +198,6 @@ spec:
     volumeMounts:
       - mountPath: /var/lib/mysql
         name: mysql-storage
-  - name: logsviewer
-    image: quay.io/vladikr/logsviewer:devel
-    imagePullPolicy: Always
-    command: ["/backend"]
-    ports:
-    - containerPort: 8080
-    volumeMounts:
-      - name: logstore
-        mountPath: /space
   - name: kibana-logging
     image: docker.elastic.co/kibana/kibana:8.1.0
     resources:
@@ -218,6 +209,10 @@ spec:
     env:
       - name: ELASTICSEARCH_URL
         value: http://localhost:9200
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
     ports:
     - containerPort: 5601
       name: ui
@@ -235,6 +230,15 @@ spec:
         mountPath: /usr/share/logstash/config
       - name: logstash-pipeline-volume
         mountPath: /usr/share/logstash/pipeline
+      - name: logstore
+        mountPath: /space
+  - name: logsviewer
+    image: quay.io/vladikr/logsviewer:devel
+    imagePullPolicy: Always
+    command: ["/backend"]
+    ports:
+    - containerPort: 8080
+    volumeMounts:
       - name: logstore
         mountPath: /space
   volumes:

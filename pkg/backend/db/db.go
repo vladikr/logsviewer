@@ -16,10 +16,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-//var db *sql.DB
 
 type (
-	//StringInterfaceMap map[string]interface{}
 	Pod struct {
 		Key       string `json:"keyid"`
 		Kind      string `json:"kind"`
@@ -66,8 +64,6 @@ type (
         Completed bool `json:"completed,omitempty"`
         // Indicates that the migration failed
         Failed bool `json:"failed,omitempty"`
-        //PodName   string `json:"podName"`
-        //HandlerPod  string `json:"handlerName"`
 		Content json.RawMessage `json:"content"`
 	}
 
@@ -252,6 +248,11 @@ func NewDatabaseInstance() (*databaseInstance, error) {
 	}
 
 	return dbInstance, nil
+}
+
+type VMIMigrationQueryDetails struct {
+    Name string
+    Namespace string
 }
 
 func (d *databaseInstance) Shutdown() (err error) {
@@ -524,9 +525,14 @@ func (d *databaseInstance) GetVmis(page int, perPage int) (map[string]interface{
     return resultsMap, nil 
 }
 
-func (d *databaseInstance) GetVmiMigrations(page int, perPage int) (map[string]interface{}, error) {
+func (d *databaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *VMIMigrationQueryDetails) (map[string]interface{}, error) {
 
 	queryString := "select name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations"
+
+    if vmiDetails != nil && vmiDetails.Name != "" {
+        queryString = fmt.Sprintf("%s where vmiName='%s' AND namespace='%s'", queryString, vmiDetails.Name, vmiDetails.Namespace)
+    }
+    log.Log.Println("queryString: ", queryString)
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err

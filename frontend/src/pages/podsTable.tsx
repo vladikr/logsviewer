@@ -152,7 +152,7 @@ export const PodsTable = () => {
         const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
         //once the user has scrolled within 300px of the bottom of the table, fetch more data if there is any
         if (
-          scrollHeight - scrollTop - clientHeight < 10 &&
+          scrollHeight - scrollTop - clientHeight < 300 &&
           !isFetching &&
           totalFetched < totalDBRowCount
         ) {
