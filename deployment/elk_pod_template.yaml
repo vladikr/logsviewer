@@ -1,0 +1,295 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: logsviewer
+  annotations:
+    openshift.io/display-name: "LogsViewer Service"
+    description: >-
+      Template for the LogsViewer service.
+    tags: "hidden,logsviewer,logs,must-gather"
+    openshift.io/provider-display-name: "Community"
+    openshift.io/documentation-url: "https://github.com/vladikr/logsviewer"
+    openshift.io/support-url: "https://github.com/vladikr/logsviewer/issues"
+    template.openshift.io/bindable: "false"
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: logsviewer-${SUFFIX}
+  spec:
+    type: NodePort
+    ports:
+    - name: "elastic"
+      port: 9200
+      targetPort: 9200
+    - name: "kibana"
+      port: 5601
+      targetPort: 5601
+    - name: "backend"
+      port: 4000
+      targetPort: 4000
+    - name: "ui"
+      port: 8080
+      targetPort: 8080
+    selector:
+      app.kubernetes.io/name: logsviewer-${SUFFIX}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: logviewer-${SUFFIX}
+  spec:
+    subdomain: logsviewer-${SUFFIX}
+    port:
+      targetPort: 8080
+    to:
+      kind: Service
+      name: logsviewer-${SUFFIX}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: kibana-${SUFFIX}
+  spec:
+    subdomain: kibana-${SUFFIX}
+    port:
+      targetPort: 5601
+    to:
+      kind: Service
+      name: logsviewer-${SUFFIX}
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: es-configmap
+  data:
+    elasticsearch.yml: |
+      node.name: logsviewer-${SUFFIX}
+      cluster.initial_master_nodes: ["logsviewer-${SUFFIX}"]
+      network.host: 0.0.0.0
+      xpack.security.enabled: false
+      path.repo: /var/backups
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: kibana-configmap
+  data:
+    kibana.yml: |
+      server.host: 0.0.0.0
+      server.shutdownTimeout: 5s
+      elasticsearch.hosts: ['http://localhost:9200']
+      monitoring.ui.container.elasticsearch.enabled: true
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: logstash-configmap
+  data:
+    logstash.yml: |
+      http.host: "0.0.0.0"
+      path.config: /usr/share/logstash/pipeline
+    logstash.conf: |
+      input {
+        file {
+          mode => "read"   
+          path => ["/space/namespaces/**/*.log"]            
+          codec => plain
+          type => "CNVLogs"
+          file_completed_action => log_and_delete
+          file_completed_log_path => "/tmp/processed.log"
+        }
+      }
+      filter {
+        mutate {
+          gsub => [
+            "message", "^[^{]*{", "{"
+          ]
+        }
+        ruby {
+          code => '
+            path = event.get("[log][file][path]")
+            parts = path.split(File::SEPARATOR)
+            event.set("podName", parts[-5])
+            event.set("containerName", parts[-4])
+            event.set("namespace", parts[-7])
+            event.set("key", sprintf("%s/%s", parts[-7], parts[-5]))
+            '
+        }
+      }
+      filter {
+        json {
+          source => "message"
+        }
+      }
+      filter {
+        date {
+          match => [ "timestamp", "ISO8601" ]
+          target => "@timestamp"
+        }
+      }
+      filter {
+        translate {
+          field => "key"
+          destination => "[enrichment_data]"
+          dictionary_path => "/space/result.json"
+        }
+  
+        json {
+          source => "[enrichment_data]"
+        }
+      }
+      output {                                               
+        elasticsearch {            
+          hosts => ["localhost:9200"]       
+          manage_template => false                           
+          index => "cnvlogs-%{+YYYY.MM.dd}"                          
+          document_type => "%{[@metadata][type]}"
+        }
+      }
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    name: logsviewer-${SUFFIX}
+    labels:
+      app.kubernetes.io/name: logsviewer-${SUFFIX}
+  spec:
+    containers:
+    - image: docker.elastic.co/elasticsearch/elasticsearch:8.1.0
+      name: elasticsearch-logging
+      lifecycle:
+        postStart:
+          exec:
+            command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
+      resources:
+        # need more cpu upon initialization, therefore burstable class
+        limits:
+          cpu: 1000m
+        requests:
+          cpu: 100m
+      ports:
+      - containerPort: 9200
+        name: db
+        protocol: TCP
+      - containerPort: 9300
+        name: transport
+        protocol: TCP
+      volumeMounts:
+      - name: elasticsearch-logging
+        mountPath: /var/backups
+      - name: es-config-volume
+        mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+        subPath: elasticsearch.yml
+      env:
+      - name: "NAMESPACE"
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+    - name: mysql
+      image: mysql:5.7
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: supersecret
+        - name: MYSQL_USER
+          value: mysql
+        - name: MYSQL_PASSWORD
+          value: supersecret
+        - name: MYSQL_DATABASE
+          value: objtracker
+      args:
+        - --ignore-db-dir=lost+found
+      ports:
+        - containerPort: 3306
+          name: mysql
+          protocol: TCP
+      volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-storage
+    - name: kibana-logging
+      image: docker.elastic.co/kibana/kibana:8.1.0
+      resources:
+        # need more cpu upon initialization, therefore burstable class
+        limits:
+          cpu: 1000m
+        requests:
+          cpu: 100m
+      env:
+        - name: ELASTICSEARCH_URL
+          value: http://localhost:9200
+      lifecycle:
+        postStart:
+          exec:
+            command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
+      ports:
+      - containerPort: 5601
+        name: ui
+        protocol: TCP
+      volumeMounts:
+      - name: kibana-cfg
+        mountPath: /usr/share/kibana/config/kibana.yml
+        subPath: kibana.yml
+    - name: logstash
+      image: docker.elastic.co/logstash/logstash:8.1.0
+      ports:
+      - containerPort: 5044
+      volumeMounts:
+        - name: config-volume
+          mountPath: /usr/share/logstash/config
+        - name: logstash-pipeline-volume
+          mountPath: /usr/share/logstash/pipeline
+        - name: logstore
+          mountPath: /space
+    - name: logsviewer
+      image: quay.io/vladikr/logsviewer:devel
+      imagePullPolicy: Always
+      command: ["/backend"]
+      ports:
+      - containerPort: 8080
+      volumeMounts:
+        - name: logstore
+          mountPath: /space
+    volumes:
+    - name: config-volume
+      configMap:
+        name: logstash-configmap
+        items:
+          - key: logstash.yml
+            path: logstash.yml
+    - name: logstash-pipeline-volume
+      configMap:
+        name: logstash-configmap
+        items:
+          - key: logstash.conf
+            path: logstash.conf
+    - name: es-config-volume
+      configMap:
+        name: es-configmap
+        items:
+          - key: elasticsearch.yml
+            path: elasticsearch.yml
+    - name: kibana-cfg
+      configMap:
+        name: kibana-configmap
+        items:
+          - key: kibana.yml
+            path: kibana.yml
+  
+    - name: elasticsearch-logging
+      emptyDir: {}
+    - name: mysql-storage
+      emptyDir: {}
+    - name: logstore
+      persistentVolumeClaim:
+        claimName: elasticsearch
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: elasticsearch
+  spec:
+    storageClassName: ocs-storagecluster-cephfs
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 20G
+parameters:
+- description: App Instance Suffix ID
+  from: '[a-z0-9]{6}'
+  generate: expression
+  name: SUFFIX
