@@ -406,8 +406,54 @@ func verifyFiles() {
     }
 }
 
+func setKibanaDefaultDataView() {
+    httpposturl := "http://localhost:5601/api/data_views/default"
+    log.Log.Println("HTTP JSON POST URL:", httpposturl)
+
+    var jsonData = []byte(`{"data_view_id": "cnvlogs-default"}`)
+    request, err := http.NewRequest("POST", httpposturl, bytes.NewBuffer(jsonData))
+    request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+    request.Header.Add("kbn-xsrf", "true")
+
+    client := &http.Client{}
+    response, err := client.Do(request)
+    if err != nil {
+        log.Log.Println("ERROR: ", err)
+    }
+    defer response.Body.Close()
+
+    log.Log.Println("response Status:", response.Status)
+    log.Log.Println("response Headers:", response.Header)
+    body, _ := ioutil.ReadAll(response.Body)
+    log.Log.Println("response Body:", string(body))
+}
+
+func createKibanaDataView() {
+    httpposturl := "http://localhost:5601/api/data_views/data_view"
+    log.Log.Println("HTTP JSON POST URL:", httpposturl)
+
+    var jsonData = []byte(`{"data_view": {"title": "cnvlogs*", "timeFieldName":"@timestamp", "id":"cnvlogs-default"}}`)
+    request, err := http.NewRequest("POST", httpposturl, bytes.NewBuffer(jsonData))
+    request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+    request.Header.Add("kbn-xsrf", "true")
+
+    client := &http.Client{}
+    response, err := client.Do(request)
+    if err != nil {
+        log.Log.Println("ERROR: ", err)
+    }
+    defer response.Body.Close()
+
+    log.Log.Println("response Status:", response.Status)
+    log.Log.Println("response Headers:", response.Header)
+    body, _ := ioutil.ReadAll(response.Body)
+    log.Log.Println("response Body:", string(body))
+}
+
 func SetupRoutes(publicDir string) *http.ServeMux {
   verifyFiles()
+  createKibanaDataView()
+  setKibanaDefaultDataView()
   mux := http.NewServeMux()
   web := http.FileServer(http.Dir(publicDir))
     
