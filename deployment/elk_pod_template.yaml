@@ -58,7 +58,7 @@ objects:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: es-configmap
+    name: es-configmap-${SUFFIX}
   data:
     elasticsearch.yml: |
       node.name: logsviewer-${SUFFIX}
@@ -69,7 +69,7 @@ objects:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: kibana-configmap
+    name: kibana-configmap-${SUFFIX}
   data:
     kibana.yml: |
       server.host: 0.0.0.0
@@ -79,7 +79,7 @@ objects:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: logstash-configmap
+    name: logstash-configmap-${SUFFIX}
   data:
     logstash.yml: |
       http.host: "0.0.0.0"
@@ -170,9 +170,9 @@ objects:
         name: transport
         protocol: TCP
       volumeMounts:
-      - name: elasticsearch-logging
+      - name: elasticsearch-logging-${SUFFIX}
         mountPath: /var/backups
-      - name: es-config-volume
+      - name: es-config-volume-${SUFFIX}
         mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
         subPath: elasticsearch.yml
       env:
@@ -200,7 +200,7 @@ objects:
           protocol: TCP
       volumeMounts:
         - mountPath: /var/lib/mysql
-          name: mysql-storage
+          name: mysql-storage-${SUFFIX}
     - name: kibana-logging
       image: docker.elastic.co/kibana/kibana:8.1.0
       resources:
@@ -221,7 +221,7 @@ objects:
         name: ui
         protocol: TCP
       volumeMounts:
-      - name: kibana-cfg
+      - name: kibana-cfg-${SUFFIX}
         mountPath: /usr/share/kibana/config/kibana.yml
         subPath: kibana.yml
     - name: logstash
@@ -229,11 +229,11 @@ objects:
       ports:
       - containerPort: 5044
       volumeMounts:
-        - name: config-volume
+        - name: config-volume-${SUFFIX}
           mountPath: /usr/share/logstash/config
-        - name: logstash-pipeline-volume
+        - name: logstash-pipeline-volume-${SUFFIX}
           mountPath: /usr/share/logstash/pipeline
-        - name: logstore
+        - name: logstore-${SUFFIX}
           mountPath: /space
     - name: logsviewer
       image: quay.io/vladikr/logsviewer:devel
@@ -242,47 +242,47 @@ objects:
       ports:
       - containerPort: 8080
       volumeMounts:
-        - name: logstore
+        - name: logstore-${SUFFIX}
           mountPath: /space
     volumes:
-    - name: config-volume
+    - name: config-volume-${SUFFIX}
       configMap:
-        name: logstash-configmap
+        name: logstash-configmap-${SUFFIX}
         items:
           - key: logstash.yml
             path: logstash.yml
-    - name: logstash-pipeline-volume
+    - name: logstash-pipeline-volume-${SUFFIX}
       configMap:
-        name: logstash-configmap
+        name: logstash-configmap-${SUFFIX}
         items:
           - key: logstash.conf
             path: logstash.conf
-    - name: es-config-volume
+    - name: es-config-volume-${SUFFIX}
       configMap:
-        name: es-configmap
+        name: es-configmap-${SUFFIX}
         items:
           - key: elasticsearch.yml
             path: elasticsearch.yml
-    - name: kibana-cfg
+    - name: kibana-cfg-${SUFFIX}
       configMap:
-        name: kibana-configmap
+        name: kibana-configmap-${SUFFIX}
         items:
           - key: kibana.yml
             path: kibana.yml
   
-    - name: elasticsearch-logging
+    - name: elasticsearch-logging-${SUFFIX}
       emptyDir: {}
-    - name: mysql-storage
+    - name: mysql-storage-${SUFFIX}
       emptyDir: {}
-    - name: logstore
+    - name: logstore-${SUFFIX}
       persistentVolumeClaim:
-        claimName: elasticsearch
+        claimName: elasticsearch-${SUFFIX}
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
-    name: elasticsearch
+    name: elasticsearch-${SUFFIX}
   spec:
-    storageClassName: ocs-storagecluster-cephfs
+    storageClassName: ${STORAGE_CLASS}
     accessModes:
     - ReadWriteOnce
     resources:
@@ -293,3 +293,6 @@ parameters:
   from: '[a-z0-9]{6}'
   generate: expression
   name: SUFFIX
+- description: Storage class to use
+  value: ocs-storagecluster-cephfs
+  name: STORAGE_CLASS
