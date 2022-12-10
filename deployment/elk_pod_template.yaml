@@ -36,7 +36,7 @@ objects:
 - apiVersion: route.openshift.io/v1
   kind: Route
   metadata:
-    name: logviewer-${SUFFIX}
+    name: logsviewer-${SUFFIX}
   spec:
     subdomain: logsviewer-${SUFFIX}
     port:

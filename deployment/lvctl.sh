@@ -90,7 +90,6 @@ TEMP=$(getopt -o cdi:s:h --long create,delete,suffix:,storage_class:,help -n 'lv
 eval set -- "$TEMP"
 
 while true; do
-    echo "got $1"
   case "$1" in
         -c | --create )    create=true; shift ;;
         -d | --delete )    delete=true; shift ;;
