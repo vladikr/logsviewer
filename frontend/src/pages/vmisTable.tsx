@@ -60,7 +60,7 @@ export const VmisTable = () => {
                 const hostname = window.location.hostname
                 const hostnameParts = hostname.split('.');
                 const ingress = hostnameParts.slice(1).join('.');
-                const appNameParts = hostnameParts.slice(0, 1).split('-');
+                const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
                 let suffix = ""
                 if (appNameParts.length > 1) {
                     suffix = "-" + appNameParts.slice(1);

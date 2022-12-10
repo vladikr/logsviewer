@@ -49,8 +49,36 @@ interface VmiMigrationsTableProps {
 
 export const VmiMigrationsTable = ({name, namespace}: VmiMigrationsTableProps) => {
     const rerender = React.useReducer(() => ({}), {})[1];
+    const fetchDSLQuery = async (
+		uuid: string
+	) => {
+        const retq = await axios.get("/getMigrationQueryParams",
+            {
+                params: {
+                    uuid: uuid
+                }
+            }).then(function (resp) {
+                console.log("await2: ", resp.data.dslQuery)
+                const hostname = window.location.hostname
+                const hostnameParts = hostname.split('.');
+                const ingress = hostnameParts.slice(1).join('.');
+                const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
+                let suffix = ""
+                if (appNameParts.length > 1) {
+                    suffix = "-" + appNameParts.slice(1);
+                }
+                const kibanaHostname = "kibana" + suffix + "." + ingress;
+                
+                window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
+                return {
+                    query: resp.data.dslQuery, 
+                };
+            })
+            
+            return retq
+    }
     const openInNewTab = ({ row }: { row: Row<VmiMigration> }) => {
-            window.open(`http://www.google.com/search?q=${row.original.name}`, '_blank', 'noopener,noreferrer');
+        fetchDSLQuery(row.original.uuid);
     }
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);

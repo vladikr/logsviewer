@@ -226,15 +226,24 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func formatVMIMigrationDSLQuery(res db.QueryResults) string {
+
+    queryTemplate := `_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:'%s'))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or podName: "%s" or podName: "%s" or "%s" or "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
+
+
+    timeStamp := fmt.Sprintf("%sZ", res.StartTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
+    endTimeStamp := fmt.Sprintf("%sZ", res.EndTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
+    
+    migrationLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, endTimeStamp, res.SourcePod, res.SourceHandler, res.TargetPod, res.TargetHandler, res.SourcePodUUID, res.VMIUUID, res.TargetPodUUID, res.MigrationUUID)
+
+    return migrationLogsQuery
+}
+
 func formatSingleVMIDSLQuery(res db.QueryResults) string {
-//2022-08-17T23:00:00.000Z
-//queryTemplate := ```(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:'%s'))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!t,key:msg,negate:!t,params:(query:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate%%20with%%20common%%20name%%20!'kubevirt.io:system:client:virt-handler!'%%20retrieved.')))),interval:auto,query:(language:kuery,query:'containerName:%%20%%22virt-controller%%22%%20or%%20containerName:%%20%%22virt-api%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20podName:%%20%%22%s%%22%%20or%%20%%22%s%%22%%20or%%20%%22%s%%22'),sort:!(!('@timestamp',asc)))```
 
     queryTemplate := `_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:now))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
 
 
-//    timeStamp := res.StartTimestamp.Format(time.RFC3339)
-    
     timeStamp := fmt.Sprintf("%sZ", res.StartTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
     
     vmiLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, res.SourcePod, res.SourceHandler, res.SourcePodUUID, res.VMIUUID)
@@ -249,8 +258,6 @@ func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
 	for k, v := range r.URL.Query() {
             params[k] = v[0]
     }
-
-	//currentPage := 1
     
     vmiUUID, exist := params["vmiUUID"]
     if !exist {
@@ -295,19 +302,17 @@ func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("getVMIQueryParams encoded: ", resp)
 }
 
-/*func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
+func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Migration Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
             params[k] = v[0]
     }
 
-	currentPage := 1
-
-    migrationUUID, err   := strconv.Atoi(fmt.Sprint(params["uuid"]))
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+    migrationUUID, exist   := params["uuid"]
+    if !exist {
+        log.Log.Println("failed to find uuid in the migrationQuery Params")
+		http.Error(w, "failed to find uuid in the migrationQuery Params", http.StatusInternalServerError)
         return
     }
 
@@ -319,20 +324,23 @@ func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
     }
     defer dbInst.Shutdown()
 
-	data, err := dbInst.getMigrationQueryParams(migrationUUID)
+	data, err := dbInst.GetMigrationQueryParams(fmt.Sprintf("%s", migrationUUID))
     if err != nil {
         log.Log.Println("failed to fetch migration params", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
         return
 	}
+    dslQuery := formatVMIMigrationDSLQuery(data)
+    resp := map[string]string{"dslQuery": dslQuery}
+    log.Log.Println("getMigrationQueryParams encoded: ", resp)
     w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	w.WriteHeader(200)  
     enc := json.NewEncoder(w)
     enc.SetIndent("", "  ")
-    if err1 := enc.Encode(data); err1 != nil {
+    if err1 := enc.Encode(resp); err1 != nil {
         fmt.Println(err1.Error())
     }    
-}*/
+}
 
 func uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
@@ -480,7 +488,7 @@ func SetupRoutes(publicDir string) *http.ServeMux {
   mux.HandleFunc("/vmis", getVmis)
   mux.HandleFunc("/vmims", getVmiMigrations)
   mux.HandleFunc("/getVMIQueryParams", getVMIQueryParams)
-  //mux.HandleFunc("/getMigrationQueryParams", getMigrationQueryParams)
+  mux.HandleFunc("/getMigrationQueryParams", getMigrationQueryParams)
   log.Log.Println("Routes set")
   return mux
 

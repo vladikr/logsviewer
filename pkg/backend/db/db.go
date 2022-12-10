@@ -72,6 +72,7 @@ type (
         SourcePodUUID     string
         TargetPodUUID     string
         VMIUUID         string
+        MigrationUUID         string
         SourcePod string
         TargetPod string
         StartTimestamp time.Time
@@ -460,18 +461,84 @@ func (d *databaseInstance) getMeta(page int, perPage int, queryString string) (m
     return meta, nil
 }
 
-/*func (d *databaseInstance) getMigrationQueryParams(vmiUUID string) (map[string]interface{}, error) {
-	podQueryString := "select uuid, name, namespace, creationTime from pods where createdBy=%s AND nodeName=%s"
-	queryString := "select name, namespace, phase, reason, nodeName, creationTime from vmis"
-    resultsMap, err := d.genericGet(queryString, page, perPage)
-	if err != nil {
-		return nil, err
-	}
-    return resultsMap, nil 
-}*/
+func (d *databaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryResults, error) {
+    // looking for a source pod - pod runs on sourceNode createdBy vmiUUID before migration creationTime and after/equal vmi creation time
+
+    results := QueryResults{}
+    migration, err := d.getSingleMigrationByUUID(migrationUUID)
+    if err != nil {
+        return results, err
+    }
+
+    vmiUUID, creationTime, err := d.getVMICreationTimeByName(migration.VMIName, migration.Namespace)
+    if err != nil {
+        return results, err
+    }
+
+    targetPodUUID, err := d.getPodUUIDByName(migration.TargetPod, migration.Namespace)
+    if err != nil {
+        return results, err
+    }
+    timeLayout := "2006-01-02 15:04:05.999999"
+	vmiMadeAt := creationTime.Format(timeLayout)
+	migrationMadeAt := migration.CreationTime.Format(timeLayout)
+	migrationEndedAt := migration.EndTimestamp.Format(timeLayout)
+    
+	sourcePodQueryString := fmt.Sprintf("select uuid, name from pods where createdBy='%s' AND nodeName='%s' AND creationTime BETWEEN '%s' and '%s' ORDER BY creationTime ASC LIMIT 1", vmiUUID, migration.SourceNode, vmiMadeAt, migrationMadeAt)
+	virtHandlerQueryString := "select name from pods where nodeName='%s' AND name like 'virt-handler%%'"
+
+    results.StartTimestamp, _ = time.Parse(timeLayout, migrationMadeAt)
+    results.EndTimestamp, _ = time.Parse(timeLayout, migrationEndedAt)
+    results.TargetPod = migration.TargetPod
+    results.TargetPodUUID = targetPodUUID
+    results.MigrationUUID = migrationUUID
+    results.VMIUUID = vmiUUID
+
+    // get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString) 
+    err = rows.Scan(&results.SourcePodUUID, &results.SourcePod)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("migration source pod lookup - can't find anything with this uuid: ", vmiUUID)
+            return results, err
+        } else {
+            log.Log.Println("migration source pod lookup, ERROR: ", err, " for uuid: ", vmiUUID)
+            return results, err
+        }
+    } 
+    
+    // get the source virt-handler
+	rows = d.db.QueryRow(fmt.Sprintf(virtHandlerQueryString, migration.SourceNode))
+    err = rows.Scan(&results.SourceHandler)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("migration src virt-handler lookup -  can't find virt-handler on node: ", migration.SourceNode)
+            return results, err
+        } else {
+            log.Log.Println("migration src virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.SourceNode)
+            return results, err
+        }
+    } 
+
+    // get the target virt-handler
+	rows = d.db.QueryRow(fmt.Sprintf(virtHandlerQueryString, migration.TargetNode))
+    err = rows.Scan(&results.TargetHandler)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("migration target virt-handler lookup -  can't find virt-handler on node: ", migration.TargetNode)
+            return results, err
+        } else {
+            log.Log.Println("migration target virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.TargetNode)
+            return results, err
+        }
+    } 
+    return results, nil 
+}
+
 
 func (d *databaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
     results := QueryResults{VMIUUID: vmiUUID}
+ 
 	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where createdBy='%s' AND nodeName='%s'", vmiUUID, nodeName)
 	virtHandlerQueryString := fmt.Sprintf("select name from pods where nodeName='%s' AND name like 'virt-handler%%'", nodeName)
 
@@ -501,8 +568,6 @@ func (d *databaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (Q
             return results, err
         }
     } 
-
-//    startTimeStr := []string{startTime.Format("2006-01-02T15:04:05Z07:00")}
 
     return results, nil 
 }
@@ -605,6 +670,47 @@ func (d *databaseInstance) genericGet(queryString string, page int, perPage int)
 	response["data"] = data
 	response["meta"] = meta
     return response, nil 
+}
+
+func (d *databaseInstance) getPodUUIDByName(name string, namespace string) (string, error) {
+
+    var podUUID string
+    query := fmt.Sprintf("SELECT uuid from pods WHERE name='%s' AND namespace='%s'", name, namespace)
+	rows := d.db.QueryRow(query) 
+
+    err := rows.Scan(&podUUID)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("failed find a pod with key: ", fmt.Sprintf("%s/%s",name, namespace))
+            return podUUID, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for pod key: ", fmt.Sprintf("%s/%s",name, namespace))
+            return podUUID, err
+        }
+    } 
+    
+    return podUUID, nil
+}
+
+func (d *databaseInstance) getVMICreationTimeByName(name string, namespace string) (string, time.Time, error) {
+
+    var creationTime time.Time
+    var vmiUUID string
+    query := fmt.Sprintf("SELECT uuid, creationTime from vmis WHERE name='%s' AND namespace='%s'", name, namespace)
+	rows := d.db.QueryRow(query) 
+
+    err := rows.Scan(&vmiUUID, &creationTime)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("failed find VMI with key: ", fmt.Sprintf("%s/%s",name, namespace))
+            return vmiUUID, creationTime, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for vmi key: ", fmt.Sprintf("%s/%s",name, namespace))
+            return vmiUUID, creationTime, err
+        }
+    } 
+    
+    return vmiUUID, creationTime, nil
 }
 
 func (d *databaseInstance) getSingleMigrationByUUID(uuid string) (*VirtualMachineInstanceMigration, error) {
