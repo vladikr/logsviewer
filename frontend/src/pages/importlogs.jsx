@@ -4,6 +4,7 @@ import {DashboardLayout} from '../components/Layout';
 import {LoadingSpinner} from '../components/Spinner';
 import Modal from "react-bootstrap/Modal";
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 
 const ImportLogsPage = () => {
   const [file, setFile] = useState()
@@ -41,11 +42,20 @@ const ImportLogsPage = () => {
 
   }
   const uploadForm = (
-      <form onSubmit={handleSubmit}>
-          <h1>Import Logs</h1>
-          <input type="file" onChange={handleChange}/>
-          <Button type="submit" variant="primary">Upload</Button>
-        </form>
+      //<form id='upload-form' onSubmit={handleSubmit}>
+      //    <input type="file" onChange={handleChange}/>
+      //    <Button type="submit" variant="primary">Upload</Button>
+      //  </form>
+    <Form noValidate onSubmit={handleSubmit}>
+        <Form.Group controlId="formFile" className="mb-3">
+            <Form.Label>Upload compressed must-gather files </Form.Label>
+            <Form.Control type="file" onChange={handleChange} />
+        </Form.Group>
+
+        <Button variant="primary" type="submit">
+            Upload
+        </Button>
+    </Form>
     );
   return (
     <DashboardLayout>
@@ -55,8 +65,6 @@ const ImportLogsPage = () => {
         centered
         show={show}
         onHide={handleClose}
-        //backdrop="static"
-        //keyboard={false}
       >
             <Modal.Header closeButton>
               <Modal.Title>Upload Logs</Modal.Title>
