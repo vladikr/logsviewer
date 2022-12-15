@@ -15,6 +15,7 @@ Help()
    echo "options:"
    echo "i|suffix            Instance ID"
    echo "s|storage_class     Storage Class to use"
+   echo "t|image_tag         Image tag to use"
    echo
 }
 
@@ -60,12 +61,14 @@ function wait_for_pod() {
 
 
 function create_instance() {
-    local storage_class="${1}" ; shift
     local ID=$(cat /dev/urandom | tr -dc 'a-za-z0-9' | fold -w 6 | head -n 1)
     if [[ $storage_class != "" ]]; then
-        add_st_class="-p ${storage_class}"
+        add_st_class="-p STORAGE_CLASS=${storage_class}"
      fi
-    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${ID} ${add_st_class}| oc create -f -
+    if [[ $image_tag != "" ]]; then
+        add_tag="-p IMAGE_TAG=${image_tag}"
+     fi
+    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${ID} ${add_st_class} ${add_tag}| oc create -f -
     sleep 5
     wait_for_pod "logsviewer-${ID}" 300
     oc get routes
@@ -73,20 +76,23 @@ function create_instance() {
 
 function delete_instance() {
     local route="${1}" ; shift
-    local storage_class="${1}" ; shift
     if [[ $storage_class != "" ]]; then
-         add_st_class="-p ${storage_class}"
+         add_st_class="-p STORAGE_CLASS=${storage_class}"
     fi
-    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${route} ${add_st_class}| oc delete -f -
+    if [[ $image_tag != "" ]]; then
+        add_tag="-p IMAGE_TAG=${image_tag}"
+     fi
+    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${route} ${add_st_class} ${add_tag}| oc delete -f -
 }
 
 # Set variables
 create=false
 delete=false
 storage_class=
+image_tag=
 suffix=
 
-TEMP=$(getopt -o cdi:s:h --long create,delete,suffix:,storage_class:,help -n 'lvctl' -- "$@")
+TEMP=$(getopt -o cdi:s:t:h --long create,delete,suffix:,storage_class:,image_tag:,help -n 'lvctl' -- "$@")
 eval set -- "$TEMP"
 
 while true; do
@@ -95,6 +101,7 @@ while true; do
         -d | --delete )    delete=true; shift ;;
         -i | --suffix )    suffix="$2"; shift 2 ;;
         -s | --storage_class )  storage_class="$2"; shift 2 ;;
+        -t | --image_tag )  image_tag="$2"; shift 2 ;;
         -h | --help)       Help shift; break;;
      \?) # Invalid option
          Help

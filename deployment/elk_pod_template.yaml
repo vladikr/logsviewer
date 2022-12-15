@@ -31,6 +31,9 @@ objects:
     - name: "ui"
       port: 8080
       targetPort: 8080
+    - name: "ui-alt"
+      port: 8081
+      targetPort: 8081
     selector:
       app.kubernetes.io/name: logsviewer-${SUFFIX}
 - apiVersion: route.openshift.io/v1
@@ -41,6 +44,17 @@ objects:
     subdomain: logsviewer-${SUFFIX}
     port:
       targetPort: 8080
+    to:
+      kind: Service
+      name: logsviewer-${SUFFIX}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: logsviewer1-${SUFFIX}
+  spec:
+    subdomain: logsviewer1-${SUFFIX}
+    port:
+      targetPort: 8081
     to:
       kind: Service
       name: logsviewer-${SUFFIX}
@@ -236,11 +250,12 @@ objects:
         - name: logstore-${SUFFIX}
           mountPath: /space
     - name: logsviewer
-      image: quay.io/vladikr/logsviewer:devel
+      image: quay.io/vladikr/logsviewer:${IMAGE_TAG}
       imagePullPolicy: Always
       command: ["/backend"]
       ports:
       - containerPort: 8080
+      - containerPort: 8081
       volumeMounts:
         - name: logstore-${SUFFIX}
           mountPath: /space
@@ -296,3 +311,6 @@ parameters:
 - description: Storage class to use
   value: ocs-storagecluster-cephfs
   name: STORAGE_CLASS
+- description: Image tag
+  value: devel
+  name: IMAGE_TAG
