@@ -61,10 +61,10 @@ type logsHandler struct {
     lookupData  map[string]EnrichmentData
 }
 
-func NewLogsHandler() *logsHandler {
+func NewLogsHandler(storeDB *db.DatabaseInstance) *logsHandler {
     lookupData := make(map[string]EnrichmentData)
     stopCh := make(chan struct{}, 1)
-    objStore := db.NewObjectStore()
+    objStore := db.NewObjectStore(storeDB)
 
     go objStore.Run(1, stopCh)
 

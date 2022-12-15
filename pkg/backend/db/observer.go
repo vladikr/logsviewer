@@ -15,12 +15,13 @@ import (
     "logsviewer/pkg/backend/log"
 )
 
-func NewObjectStore() *ObjectStore {
+func NewObjectStore(storeDB *DatabaseInstance) *ObjectStore {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "objectStore")
 	c := &ObjectStore{
 		Queue:             queue,
 		lockDBConn:        &sync.Mutex{},
+        storeDB:           storeDB,
 	}
 
 	return c
@@ -28,7 +29,7 @@ func NewObjectStore() *ObjectStore {
 
 type ObjectStore struct {
 	Queue             workqueue.RateLimitingInterface
-	storeDB           *databaseInstance
+	storeDB           *DatabaseInstance
 	lockDBConn   	  *sync.Mutex
     wg                sync.WaitGroup
 
@@ -65,15 +66,6 @@ func (c *ObjectStore) connectDatabaseIfNeeded() bool {
 			return false
 		}
 		c.storeDB = dbInst
-		if err := c.storeDB.InitTables(); err != nil {
-            log.Log.Println("failed to connect to database", err)
-			if err := c.storeDB.DropTables(); err != nil {
-                log.Log.Println("failed to drop tables", err)
-			}
-			c.storeDB.Shutdown()
-			c.storeDB = nil
-			return false
-		}
 	}
 	return true
 

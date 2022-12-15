@@ -1,7 +1,7 @@
 package main
 
 import (
-    "net/http"
+    //"net/http"
     "flag"
     "os"
 
@@ -13,6 +13,8 @@ func main() {
     fs.SetOutput(os.Stdout)
     log.Log.Println("Starting logsviewer")
     publicDir := fs.String("public-dir", "./frontend/build/", "directory containing static web assets.")
-    mux := SetupRoutes(*publicDir)
-    http.ListenAndServe(":8080", mux)
+    if err := Spawn(*publicDir); err != nil {
+        panic(err)
+    }
+    
 }

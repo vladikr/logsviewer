@@ -9,80 +9,13 @@ import (
     "strconv"
 
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubevirtv1 "kubevirt.io/api/core/v1"
 
     "logsviewer/pkg/backend/log"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
-
-type (
-	Pod struct {
-		Key       string `json:"keyid"`
-		Kind      string `json:"kind"`
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		UUID      string `json:"uuid"`
-        Phase     string `json:"phase"`
-        ActiveContainers int `json:"activeContainers"`
-        TotalContainers  int `json:"totalContainers"`
-        NodeName         string `json:"nodeName"`
-        CreationTime     metav1.Time `json:"creationTime"`
-		Content json.RawMessage `json:"content"`
-        CreatedBy        string `json:"createdBy"`
-	}
-
-	VirtualMachineInstance struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		UUID      string `json:"uuid"`
-        Reason     string `json:"reason"`
-        Phase     string `json:"phase"`
-        NodeName         string `json:"nodeName"`
-        CreationTime     metav1.Time `json:"creationTime"`
-        //PodName   string `json:"podName"`
-        //HandlerPod  string `json:"handlerName"`
-        Status kubevirtv1.VirtualMachineInstanceStatus `json:"status,omitempty"`
-		Content json.RawMessage `json:"content"`
-	}
-
-	VirtualMachineInstanceMigration struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		UUID      string `json:"uuid"`
-        Phase     string `json:"phase"`
-        VMIName         string `json:"vmiName"`
-        // The target pod that the VMI is moving to
-        TargetPod string `json:"targetPod,omitempty"`
-        CreationTime metav1.Time `json:"creationTime"`
-        EndTimestamp metav1.Time `json:"endTimestamp,omitempty"`
-        SourceNode string `json:"sourceNode,omitempty"`
-        // The target node that the VMI is moving to
-        TargetNode string `json:"targetNode,omitempty"`
-        // Indicates the migration completed
-        Completed bool `json:"completed,omitempty"`
-        // Indicates that the migration failed
-        Failed bool `json:"failed,omitempty"`
-		Content json.RawMessage `json:"content"`
-	}
-
-	QueryResults struct {
-        Namespace   string
-        SourcePodUUID     string
-        TargetPodUUID     string
-        VMIUUID         string
-        MigrationUUID         string
-        SourcePod string
-        TargetPod string
-        StartTimestamp time.Time
-        EndTimestamp time.Time
-        SourceHandler string
-        TargetHandler string
-	}
-)
-
-func (d *databaseInstance) StorePod(pod *Pod) error {
+func (d *DatabaseInstance) StorePod(pod *Pod) error {
 	// TimeString - given a time, return the MySQL standard string representation
 	madeAt := pod.CreationTime.Format("2006-01-02 15:04:05.999999")
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
@@ -115,7 +48,7 @@ func (d *databaseInstance) StorePod(pod *Pod) error {
 	return nil
 } 
 
-func (d *databaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
+func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	// TimeString - given a time, return the MySQL standard string representation
 	madeAt := vmi.CreationTime.Format("2006-01-02 15:04:05.999999")
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
@@ -170,7 +103,7 @@ func (d *databaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	return nil
 } 
 
-func (d *databaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigration) error {
+func (d *DatabaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigration) error {
 	// TimeString - given a time, return the MySQL standard string representation
 	madeAt := vmim.CreationTime.Format("2006-01-02 15:04:05.999999")
 	endedAt := vmim.EndTimestamp.Format("2006-01-02 15:04:05.999999")
@@ -220,7 +153,7 @@ var (
 	defaultdbName   = "objtracker"
 )
 
-type databaseInstance struct {
+type DatabaseInstance struct {
 	username string
 	password string
 	host     string
@@ -231,8 +164,8 @@ type databaseInstance struct {
 	cancel   context.CancelFunc
 }
 
-func NewDatabaseInstance() (*databaseInstance, error) {
-	dbInstance := &databaseInstance{
+func NewDatabaseInstance() (*DatabaseInstance, error) {
+	dbInstance := &DatabaseInstance{
 		username: defaultUsername,
 		password: defaultPassword,
 		host:     defaultHost,
@@ -256,7 +189,7 @@ type VMIMigrationQueryDetails struct {
     Namespace string
 }
 
-func (d *databaseInstance) Shutdown() (err error) {
+func (d *DatabaseInstance) Shutdown() (err error) {
 	if d.cancel != nil {
 		d.cancel()
 	}
@@ -267,7 +200,7 @@ func (d *databaseInstance) Shutdown() (err error) {
 	return
 }
 
-func (d *databaseInstance) InitTables() (err error) {
+func (d *DatabaseInstance) InitTables() (err error) {
 	err = d.createTables()
 	if err != nil {
 		return err
@@ -276,7 +209,7 @@ func (d *databaseInstance) InitTables() (err error) {
 	return nil
 }
 
-func (d *databaseInstance) connect() (err error) {
+func (d *DatabaseInstance) connect() (err error) {
 
 	uri := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", d.username, d.password, d.host, d.port, d.dbName)
 
@@ -296,7 +229,7 @@ func (d *databaseInstance) connect() (err error) {
 	return nil
 }
 
-func (d *databaseInstance) createTables() error {
+func (d *DatabaseInstance) createTables() error {
     if err := d.createPodsTable(); err != nil {
 		return err
 	}
@@ -309,7 +242,7 @@ func (d *databaseInstance) createTables() error {
 	return nil
 }
 
-func (d *databaseInstance) createPodsTable() error {
+func (d *DatabaseInstance) createPodsTable() error {
 
 	createPodsTable := `
 	CREATE TABLE IF NOT EXISTS pods (
@@ -336,7 +269,7 @@ func (d *databaseInstance) createPodsTable() error {
 	return nil
 }
 
-func (d *databaseInstance) createVmisTable() error {
+func (d *DatabaseInstance) createVmisTable() error {
 
 	vmisTableCreate := `
 	CREATE TABLE IF NOT EXISTS vmis (
@@ -360,7 +293,7 @@ func (d *databaseInstance) createVmisTable() error {
 	return nil
 }
 
-func (d *databaseInstance) createVmiMigrationsTable() error {
+func (d *DatabaseInstance) createVmiMigrationsTable() error {
 
 	vmimsTableCreate := `
 	CREATE TABLE IF NOT EXISTS vmimigrations (
@@ -389,7 +322,7 @@ func (d *databaseInstance) createVmiMigrationsTable() error {
 }
 
 
-func (d *databaseInstance) execTable(tableSql string) error {
+func (d *DatabaseInstance) execTable(tableSql string) error {
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
 	defer cancel()
 
@@ -405,7 +338,7 @@ func (d *databaseInstance) execTable(tableSql string) error {
 	}
 	return nil
 }
-func (d *databaseInstance) DropTables() error {
+func (d *DatabaseInstance) DropTables() error {
 	dropPodsTable := `
 	DROP TABLE pods;
 	`
@@ -417,7 +350,7 @@ func (d *databaseInstance) DropTables() error {
 	return nil
 }
 
-func (d *databaseInstance) getMeta(page int, perPage int, queryString string) (map[string]int, error) {  
+func (d *DatabaseInstance) getMeta(page int, perPage int, queryString string) (map[string]int, error) {  
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
 	defer cancel()
 
@@ -461,7 +394,7 @@ func (d *databaseInstance) getMeta(page int, perPage int, queryString string) (m
     return meta, nil
 }
 
-func (d *databaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryResults, error) {
+func (d *DatabaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryResults, error) {
     // looking for a source pod - pod runs on sourceNode createdBy vmiUUID before migration creationTime and after/equal vmi creation time
 
     results := QueryResults{}
@@ -536,7 +469,7 @@ func (d *databaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryR
 }
 
 
-func (d *databaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
+func (d *DatabaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
     results := QueryResults{VMIUUID: vmiUUID}
  
 	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where createdBy='%s' AND nodeName='%s'", vmiUUID, nodeName)
@@ -572,7 +505,7 @@ func (d *databaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (Q
     return results, nil 
 }
 
-func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
@@ -581,7 +514,7 @@ func (d *databaseInstance) GetPods(page int, perPage int) (map[string]interface{
     return resultsMap, nil 
 }
 
-func (d *databaseInstance) GetVmis(page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetVmis(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, reason, nodeName, creationTime from vmis"
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
@@ -590,7 +523,7 @@ func (d *databaseInstance) GetVmis(page int, perPage int) (map[string]interface{
     return resultsMap, nil 
 }
 
-func (d *databaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *VMIMigrationQueryDetails) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *VMIMigrationQueryDetails) (map[string]interface{}, error) {
 
 	queryString := "select name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations"
 
@@ -605,7 +538,7 @@ func (d *databaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *V
     return resultsMap, nil 
 }
 
-func (d *databaseInstance) genericGet(queryString string, page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int) (map[string]interface{}, error) {
 	response := map[string]interface{}{}
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
 	defer cancel()
@@ -672,7 +605,7 @@ func (d *databaseInstance) genericGet(queryString string, page int, perPage int)
     return response, nil 
 }
 
-func (d *databaseInstance) getPodUUIDByName(name string, namespace string) (string, error) {
+func (d *DatabaseInstance) getPodUUIDByName(name string, namespace string) (string, error) {
 
     var podUUID string
     query := fmt.Sprintf("SELECT uuid from pods WHERE name='%s' AND namespace='%s'", name, namespace)
@@ -692,7 +625,7 @@ func (d *databaseInstance) getPodUUIDByName(name string, namespace string) (stri
     return podUUID, nil
 }
 
-func (d *databaseInstance) getVMICreationTimeByName(name string, namespace string) (string, time.Time, error) {
+func (d *DatabaseInstance) getVMICreationTimeByName(name string, namespace string) (string, time.Time, error) {
 
     var creationTime time.Time
     var vmiUUID string
@@ -713,7 +646,7 @@ func (d *databaseInstance) getVMICreationTimeByName(name string, namespace strin
     return vmiUUID, creationTime, nil
 }
 
-func (d *databaseInstance) getSingleMigrationByUUID(uuid string) (*VirtualMachineInstanceMigration, error) {
+func (d *DatabaseInstance) getSingleMigrationByUUID(uuid string) (*VirtualMachineInstanceMigration, error) {
 
     vmim := VirtualMachineInstanceMigration{}
     var startTime time.Time

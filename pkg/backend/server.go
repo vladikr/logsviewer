@@ -6,12 +6,10 @@ import (
     "io"
     "os"
     "errors"
-    //"time"
     "bytes"
     "encoding/json"
     "io/ioutil"
     "strconv"
-    //"strings"
 
     "logsviewer/pkg/backend/log"
     "logsviewer/pkg/backend/db"
@@ -22,6 +20,42 @@ import (
 const (
     ENRICHMENT_DATA_FILE = "/space/result.json"
 )
+
+type app struct {
+    storeDB           *db.DatabaseInstance
+}
+
+func NewAppInstance() (*app, error) {
+    newAppInstance := &app{}
+    if err := newAppInstance.initStoreDB(); err != nil {
+        return newAppInstance, err
+    }
+    return newAppInstance, nil
+}
+
+func (c *app) initStoreDB() error {
+	dbInst, err := db.NewDatabaseInstance()
+	if err != nil {
+        msg := "failed to connect to database - "
+        log.Log.Println(msg, err)
+		return fmt.Errorf("%s%s", msg, err.Error())
+	}
+	c.storeDB = dbInst
+	if err := c.storeDB.InitTables(); err != nil {
+        log.Log.Println("failed to connect to database", err)
+		if err := c.storeDB.DropTables(); err != nil {
+            log.Log.Println("failed to drop tables", err)
+		}
+		c.storeDB.Shutdown()
+		c.storeDB = nil
+        msg := "failed to initalize the database"
+        log.Log.Println(msg, err)
+		return fmt.Errorf("%s: %s", msg, err.Error())
+	}
+    return nil
+}
+
+
 
 // We'll need to define an Upgrader
 // this will require a Read and Write buffer size
@@ -35,6 +69,8 @@ var upgrader = websocket.Upgrader{
     // For now, we'll do no checking and just allow any connection
     CheckOrigin: func(r *http.Request) bool { return true },
 }
+
+
 
 // define a reader which will listen for
 // new messages being sent to our WebSocket
@@ -74,7 +110,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
     reader(ws)
 }
 
-func getPods(w http.ResponseWriter, r *http.Request) {
+func (c *app) getPods(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Pods Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
@@ -98,15 +134,7 @@ func getPods(w http.ResponseWriter, r *http.Request) {
         }  
     }
 
-    dbInst, err := db.NewDatabaseInstance()
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer dbInst.Shutdown()
-
-	data, err := dbInst.GetPods(currentPage, pageSize)
+	data, err := c.storeDB.GetPods(currentPage, pageSize)
     if err != nil {
         log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -121,7 +149,7 @@ func getPods(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
-func getVmis(w http.ResponseWriter, r *http.Request) {
+func (c *app) getVmis(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Vmis Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
@@ -145,15 +173,7 @@ func getVmis(w http.ResponseWriter, r *http.Request) {
         }  
     }
 
-    dbInst, err := db.NewDatabaseInstance()
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer dbInst.Shutdown()
-
-	data, err := dbInst.GetVmis(currentPage, pageSize)
+	data, err := c.storeDB.GetVmis(currentPage, pageSize)
     if err != nil {
         log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -168,7 +188,7 @@ func getVmis(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
-func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
+func (c *app) getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Vmi migrations Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
@@ -203,15 +223,7 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
         }  
     }
 
-    dbInst, err := db.NewDatabaseInstance()
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer dbInst.Shutdown()
-
-	data, err := dbInst.GetVmiMigrations(currentPage, pageSize, &vmiDetails)
+	data, err := c.storeDB.GetVmiMigrations(currentPage, pageSize, &vmiDetails)
     if err != nil {
         log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -226,33 +238,7 @@ func getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
-func formatVMIMigrationDSLQuery(res db.QueryResults) string {
-
-    queryTemplate := `_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:'%s'))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or podName: "%s" or podName: "%s" or "%s" or "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
-
-
-    timeStamp := fmt.Sprintf("%sZ", res.StartTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
-    endTimeStamp := fmt.Sprintf("%sZ", res.EndTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
-    
-    migrationLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, endTimeStamp, res.SourcePod, res.SourceHandler, res.TargetPod, res.TargetHandler, res.SourcePodUUID, res.VMIUUID, res.TargetPodUUID, res.MigrationUUID)
-
-    return migrationLogsQuery
-}
-
-func formatSingleVMIDSLQuery(res db.QueryResults) string {
-
-    queryTemplate := `_g=(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:'%s',to:now))&_a=(columns:!(msg,podName,component,uid,subcomponent,reason,enrichment_data.pod.uid,enrichment_data.host.name,level),filters:!(('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!f,type:exists,value:exists),query:(exists:(field:msg))),('$state':(store:appState),meta:(alias:!n,disabled:!f,key:msg,negate:!t,params:(query:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.'),type:phrase),query:(match_phrase:(msg:'certificate with common name !'kubevirt.io:system:client:virt-handler!' retrieved.')))),interval:auto,query:(language:kuery,query:'containerName: "virt-controller" or containerName: "virt-api" or podName: "%s" or podName: "%s" or "%s" or "%s"'),sort:!(!('@timestamp',asc)))`
-
-
-    timeStamp := fmt.Sprintf("%sZ", res.StartTimestamp.UTC().Format("2006-01-02T15:04:05.000"))
-    
-    vmiLogsQuery := fmt.Sprintf(queryTemplate, timeStamp, res.SourcePod, res.SourceHandler, res.SourcePodUUID, res.VMIUUID)
-
-    return vmiLogsQuery
-}
-
-
-func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
+func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get VMI Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
@@ -272,17 +258,10 @@ func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    dbInst, err := db.NewDatabaseInstance()
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer dbInst.Shutdown()
     vmiUUIDStr := fmt.Sprintf("%s", vmiUUID)
     nodeNameStr := fmt.Sprintf("%s", nodeName)
 
-	data, err := dbInst.GetVMIQueryParams(vmiUUIDStr, nodeNameStr)
+	data, err := c.storeDB.GetVMIQueryParams(vmiUUIDStr, nodeNameStr)
     if err != nil {
         log.Log.Println("failed to fetch VMI params", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -302,7 +281,7 @@ func getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("getVMIQueryParams encoded: ", resp)
 }
 
-func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
+func (c *app) getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Migration Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
 	for k, v := range r.URL.Query() {
@@ -316,15 +295,7 @@ func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    dbInst, err := db.NewDatabaseInstance()
-    if err != nil {
-        log.Log.Println("failed to connect to database", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer dbInst.Shutdown()
-
-	data, err := dbInst.GetMigrationQueryParams(fmt.Sprintf("%s", migrationUUID))
+	data, err := c.storeDB.GetMigrationQueryParams(fmt.Sprintf("%s", migrationUUID))
     if err != nil {
         log.Log.Println("failed to fetch migration params", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -342,7 +313,7 @@ func getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
-func uploadLogs(w http.ResponseWriter, r *http.Request) {
+func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
     log.Log.Println("File Upload Endpoint Hit")
 
@@ -405,7 +376,7 @@ func uploadLogs(w http.ResponseWriter, r *http.Request) {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
-        logsHandler := NewLogsHandler()
+        logsHandler := NewLogsHandler(c.storeDB)
         defer close(logsHandler.stopCh)
         if err := logsHandler.processPodYAMLs(); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -474,23 +445,38 @@ func createKibanaDataView() {
     log.Log.Println("response Body:", string(body))
 }
 
-func SetupRoutes(publicDir string) *http.ServeMux {
+func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   verifyFiles()
   createKibanaDataView()
   setKibanaDefaultDataView()
+  app, err := NewAppInstance() 
+    if err != nil {
+        return nil, err
+    }
+
+
   mux := http.NewServeMux()
-  web := http.FileServer(http.Dir(publicDir))
+  web := http.FileServer(http.Dir(*publicDir))
     
   mux.Handle("/", web)
   //TODO: move to an API sub
-  mux.HandleFunc("/uploadLogs", uploadLogs)
-  mux.HandleFunc("/pods", getPods)
-  mux.HandleFunc("/vmis", getVmis)
-  mux.HandleFunc("/vmims", getVmiMigrations)
-  mux.HandleFunc("/getVMIQueryParams", getVMIQueryParams)
-  mux.HandleFunc("/getMigrationQueryParams", getMigrationQueryParams)
+  mux.HandleFunc("/uploadLogs", app.uploadLogs)
+  mux.HandleFunc("/pods", app.getPods)
+  mux.HandleFunc("/vmis", app.getVmis)
+  mux.HandleFunc("/vmims", app.getVmiMigrations)
+  mux.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
+  mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
   log.Log.Println("Routes set")
-  return mux
+  return mux, nil
 
+}
+
+func Spawn(publicDir string) error {
+    mux, err := SetupRoutes(&publicDir)
+    if err != nil {
+        return err 
+    }
+    http.ListenAndServe(":8080", mux)
+    return nil
 }
 
