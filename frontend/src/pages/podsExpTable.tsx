@@ -1,37 +1,38 @@
-import React, { useState, Fragment } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
-import "./index.css";
-import {VmiMigrationsTable} from './vmimsTable';
-import Icon from "awesome-react-icons";
+//import { Pod, PodsApiResponse } from './podObject';
+//import { debounce } from '@patternfly/react-core';
+//import { Table, TableHeader, TableGridBreakpoint } from '@patternfly/react-table';
+//import { CellMeasurerCache, CellMeasurer } from 'react-virtualized';
+//import { AutoSizer, VirtualTableBody } from '@patternfly/react-virtualized-extension';
 
-//3 TanStack Libraries!!!
+
+
 import {
   ColumnDef,
   Row,
   flexRender,
-  getExpandedRowModel,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable
 } from "@tanstack/react-table";
 import {
-  QueryClient,
-  QueryClientProvider,
   useInfiniteQuery
 } from "@tanstack/react-query";
 import { useVirtual } from "react-virtual";
-export type Vmi = {
+export type Pod = {
     uuid: string;
     name: string;
     namespace: string;
     phase: string;
-    reason: string;
-    nodeName: string;
+    activeContainers: number;
+    totalContainers: number;
     creationTime: Date;
+    createdBy: string;
 };
 
-type VmisApiResponse = {
-    data: Vmi[];
+type PodsApiResponse = {
+    data: Pod[];
     meta: {
         totalRowCount: number;
     }
@@ -40,80 +41,13 @@ type VmisApiResponse = {
 
 const fetchSize = 25;
 
-export const VmisTable = () => {
+export const PodsExpTable = () => {
+    //const [data, setData] = useState([]);
     const rerender = React.useReducer(() => ({}), {})[1];
     //we need a reference to the scrolling element for logic down below
     const tableContainerRef = React.useRef<HTMLDivElement>(null);
-    const fetchDSLQuery = async (
-		vmiUUID: string,
-		nodeName: string
-	) => {
-        const retq = await axios.get("/getVMIQueryParams",
-            {
-                params: {
-                    vmiUUID: vmiUUID,
-                    nodeName: nodeName
-                }
-            }).then(function (resp) {
-                console.log("await2: ", resp.data.dslQuery)
-                const hostname = window.location.hostname
-                const hostnameParts = hostname.split('.');
-                const ingress = hostnameParts.slice(1).join('.');
-                const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
-                let suffix = ""
-                if (appNameParts.length > 1) {
-                    suffix = "-" + appNameParts.slice(1);
-                }
-                const kibanaHostname = "kibana" + suffix + "." + ingress;
-                
-                window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
-                return {
-                    query: resp.data.dslQuery, 
-                };
-            })
-            
-            return retq
-    }
-    const openInNewTab = ({ row }: { row: Row<Vmi> }) => {
-        fetchDSLQuery(row.original.uuid, row.original.nodeName);
-    }
-    const columns = React.useMemo<ColumnDef<Vmi>[]>(
+    const columns = React.useMemo<ColumnDef<Pod>[]>(
         () => [
-          {
-            id: 'reporter',
-            header: () => null,
-            size: 20,
-            cell: ({ row }) => {
-                return (
-                    <button
-                        {...{
-                            onClick: () => openInNewTab({row}),
-                            style: { cursor: 'pointer' },
-                        }}
-                    >   <Icon name="external-link"/>
-                    </button>
-                )
-            },
-          },
-          {
-            id: 'expander',
-            header: () => null,
-            size: 20,
-            cell: ({ row }) => {
-                return row.getCanExpand() ? (
-                    <button
-                        {...{
-                            onClick: row.getToggleExpandedHandler(),
-                            style: { cursor: 'pointer' },
-                        }}
-                    >
-                        {row.getIsExpanded() ? <Icon name="minus"/> : <Icon name="plus"/>}
-                    </button>
-                ) : (
-                    '🔵'
-                )
-            },
-          },
           {
             accessorKey: "uuid",
             cell: (info) => info.getValue(),
@@ -122,7 +56,8 @@ export const VmisTable = () => {
           {
             accessorKey: "name",
             cell: (info) => info.getValue(),
-            header: () => <span>Name</span>
+            header: () => <span>Name</span>,
+            size: 100
           },
           {
             accessorKey: "namespace",
@@ -135,9 +70,14 @@ export const VmisTable = () => {
             header: () => <span>Phase</span>
           },
           {
-            accessorKey: "reason",
-            cell: (info) => info.getValue(),
-            header: () => <span>Reason</span>
+            accessorKey: "activeContainers",
+            header: () => <span>Active Containers</span>,
+            size: 80
+          },
+          {
+            accessorKey: "totalContainers",
+            header: () => <span>Total Containers</span>,
+            size: 80
           },
           {
             accessorKey: "creationTime",
@@ -145,9 +85,9 @@ export const VmisTable = () => {
             cell: (info) => info.getValue()
           },
           {
-            accessorKey: "nodeName",
+            accessorKey: "createdBy",
             cell: (info) => info.getValue(),
-            header: () => <span>NodeName</span>
+            header: () => <span>CreatedBy</span>
           }
         ],
         []
@@ -157,7 +97,7 @@ export const VmisTable = () => {
 		start: number,
 		size: number
 	) => {
-        return axios.get("/vmis",
+        return axios.get("/pods",
             {
                 params: {
                     page: start,
@@ -173,11 +113,12 @@ export const VmisTable = () => {
 
   //react-query has an useInfiniteQuery hook just for this situation!
   const { data, fetchNextPage, isFetching, isLoading } = useInfiniteQuery<
-    VmisApiResponse
+    PodsApiResponse
   >(
     ["table-data"], //adding sorting state as key causes table to reset and fetch from new beginning upon sort
 	async ({ pageParam = 0 }) => {
       const start = pageParam;
+
       const fetchedData = fetchData(start, fetchSize);
       return fetchedData;
     },
@@ -188,7 +129,6 @@ export const VmisTable = () => {
     }
   );
 
-  //we must flatten the array of arrays from the useInfiniteQuery hook
   const flatData = React.useMemo(
     () => {
         const mData = data?.pages?.flatMap((page) => page.data) ?? []
@@ -196,7 +136,7 @@ export const VmisTable = () => {
             return mData;
         } 
         return Object.values(
-            mData.reduce<Record<string, Vmi>>((c, v) => {
+            mData.reduce<Record<string, Pod>>((c, v) => {
             if (v.hasOwnProperty('uuid')) {
                 c[v.uuid] = v;
             }
@@ -207,6 +147,7 @@ export const VmisTable = () => {
   );
   const totalDBRowCount = data?.pages?.[0]?.meta?.totalRowCount ?? 0;
   const totalFetched = flatData.length;
+
 
   //called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
   const fetchMoreOnBottomReached = React.useCallback(
@@ -234,10 +175,8 @@ export const VmisTable = () => {
   const table = useReactTable({
     data: flatData,
     columns,
-    getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
     debugTable: true
   });
 
@@ -249,22 +188,6 @@ export const VmisTable = () => {
     size: rows.length,
     overscan: 10
   });
-  
-  const renderSubComponent = ({ row }: { row: Row<Vmi> }) => {
-    const queryClient = new QueryClient();
-  return (
-    
-      <React.StrictMode>
-		<QueryClientProvider client={queryClient}>
-            <VmiMigrationsTable name={row.original.name} namespace={row.original.namespace}/>
-		</QueryClientProvider>
-      </React.StrictMode>
-    /*<pre style={{ fontSize: '10px' }}>
-      <code>{JSON.stringify(row.original, null, 2)}</code>
-      
-    </pre>*/
-  )
-}
   const { virtualItems: virtualRows, totalSize } = rowVirtualizer;
   const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start || 0 : 0;
   const paddingBottom =
@@ -327,31 +250,20 @@ export const VmisTable = () => {
               </tr>
             )}
             {virtualRows.map((virtualRow) => {
-              const row = rows[virtualRow.index] as Row<Vmi>;
+              const row = rows[virtualRow.index] as Row<Pod>;
               return (
-                <Fragment key={row.id}>
-                    <tr>
-                      {/* first row is a normal row */}
-                      {row.getVisibleCells().map(cell => {
-                        return (
-                          <td key={cell.id}>
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext()
-                            )}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                    {row.getIsExpanded() && (
-                      <tr>
-                        {/* 2nd row is a custom 1 cell row */}
-                        <td colSpan={row.getVisibleCells().length}>
-                          {renderSubComponent({ row })}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                <tr key={row.id}>
+                  {row.getVisibleCells().map((cell) => {
+                    return (
+                      <td key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
               );
             })}
             {paddingBottom > 0 && (

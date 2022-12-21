@@ -6,6 +6,7 @@ import WorkloadsPage from "./workloads";
 import NodesPage from "./nodes";
 import ImportPage from "./import";
 import PodsPage from "./pods";
+import PodsExpPage from "./podsExp";
 import VMIsPage from "./vmis";
 import VMIMigrationsPage from "./vmims";
 import VMsPage from "./vms";
@@ -34,6 +35,9 @@ const Routes = () => {
         </Route>
         <Route path="/workloads/pods">
           <PodsPage />
+        </Route>
+        <Route path="/workloads/podsExp">
+          <PodsExpPage />
         </Route>
 
         <Route path="/nodes">
