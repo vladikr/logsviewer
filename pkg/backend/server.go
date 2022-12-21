@@ -471,11 +471,32 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 
 }
 
-func Spawn(publicDir string) error {
+func Spawn(publicDir string, publicDirAlt string) error {
     mux, err := SetupRoutes(&publicDir)
     if err != nil {
         return err 
     }
+
+    go func() {
+        app, err := NewAppInstance() 
+        if err != nil {
+            return
+        }
+        mux1 := http.NewServeMux()
+        web1 := http.FileServer(http.Dir(publicDirAlt))
+        
+        mux1.Handle("/", web1)
+        //TODO: move to an API sub
+        mux1.HandleFunc("/uploadLogs", app.uploadLogs)
+        mux1.HandleFunc("/pods", app.getPods)
+        mux1.HandleFunc("/vmis", app.getVmis)
+        mux1.HandleFunc("/vmims", app.getVmiMigrations)
+        mux1.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
+        mux1.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
+        log.Log.Println("Routes alt set")
+        http.ListenAndServe(":8081", mux1)
+        
+    }()
     http.ListenAndServe(":8080", mux)
     return nil
 }
