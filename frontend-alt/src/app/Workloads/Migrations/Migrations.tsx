@@ -105,6 +105,34 @@ const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, nam
     setPerPage(newPerPage);
   };
 
+    const fetchDSLQuery = async (
+		uuid: string
+	) => {
+        const retq = await axios.get("/getMigrationQueryParams",
+            {
+                params: {
+                    uuid: uuid
+                }
+            }).then(function (resp) {
+                console.log("await2: ", resp.data.dslQuery)
+                const hostname = window.location.hostname
+                const hostnameParts = hostname.split('.');
+                const ingress = hostnameParts.slice(1).join('.');
+                const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
+                let suffix = ""
+                if (appNameParts.length > 1) {
+                    suffix = "-" + appNameParts.slice(1);
+                }
+                const kibanaHostname = "kibana" + suffix + "." + ingress;
+                
+                window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
+                return {
+                    query: resp.data.dslQuery, 
+                };
+            })
+            
+            return retq
+    }
   const renderPagination = (variant, isCompact) => (
     <Pagination
       isCompact={isCompact}
@@ -161,18 +189,15 @@ const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, nam
 
   const defaultActions = (repo: VmiMigration): IAction[] => [
     {
-      title: "Some action",
-      onClick: () => console.log(`clicked on Some action, on row ${repo.name}`)
-    },
-    {
-      title: <a href="https://www.patternfly.org">Link action</a>
+      title: "Show Logs",
+      onClick: () => fetchDSLQuery(repo.uuid)
     },
     {
       isSeparator: true
     },
     {
       title: "Third action",
-      onClick: () => console.log(`clicked on Third action, on row ${repo.name}`)
+      onClick: () => console.log(`Not implemented yet for ${repo.name}`)
     }
   ];
   const tableToolbar = (
@@ -197,7 +222,7 @@ const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, nam
       } else {
         return (
           <Th
-            modifier="breakWord"
+            modifier="wrap"
             dataLabel={columnNames[key]}
           >
             {repo[key].toString()}
@@ -240,7 +265,7 @@ return (
       <Thead>
         <Tr>
           {Object.keys(columnNames).map((key, index) => {
-            return <Th>{columnNames[key]}</Th>;
+            return <Th modifier="wrap">{columnNames[key]}</Th>;
           })}
         </Tr>
       </Thead>

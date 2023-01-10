@@ -220,7 +220,8 @@ const Pods: React.FunctionComponent = () => {
       } else {
         return (
           <Th
-            modifier="breakWord"
+          //  modifier="breakWord"
+            modifier="wrap"
             dataLabel={columnNames[key]}
           >
             {repo[key].toString()}
@@ -262,7 +263,7 @@ const Pods: React.FunctionComponent = () => {
       <Thead>
         <Tr>
           {Object.keys(columnNames).map((key, index) => {
-            return <Th>{columnNames[key]}</Th>;
+            return <Th modifier="wrap">{columnNames[key]}</Th>;
           })}
         </Tr>
       </Thead>

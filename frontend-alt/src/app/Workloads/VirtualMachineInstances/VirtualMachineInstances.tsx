@@ -25,6 +25,19 @@ import {
 } from "@patternfly/react-core";
 
 const VirtualMachineInstances: React.FunctionComponent = () => {
+    type Vmi = {
+        uuid: string;
+        name: string;
+        namespace: string;
+        phase: string;
+        reason: string;
+        nodeName: string;
+        creationTime: Date;
+        nestedComponent?: React.ReactNode;
+        link?: React.ReactNode;
+        noPadding?: boolean;
+    };
+
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
@@ -43,38 +56,23 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
           	setLoadingData(false);
         	});
     	}
-    if (loadingData) {
-      // if the result is not ready so you make the axios call
-      getData();
-    }
-  }, []);
+        if (loadingData) {
+        // if the result is not ready so you make the axios call
+            getData();
+        }
+    }, []);
 
-  type Vmi = {
-    uuid: string;
-    name: string;
-    namespace: string;
-    phase: string;
-    reason: string;
-    nodeName: string;
-    creationTime: Date;
-    nestedComponent?: React.ReactNode;
-    link?: React.ReactNode;
-    noPadding?: boolean;
-  };
-  const generateVmiData = (unproccessedData: any[]) => {
-    const vmis: Vmi[] = [];
-    unproccessedData.map((res) => {
-      //res['cretionTime'] = new Date(res.creationTime);
-      const newRes: Vmi = { ...res, creationTime: new Date(res.creationTime) };
-      vmis.push(newRes);
-      return vmis;
-    });
-    console.log(vmis);
-    return vmis;
-  };
-  //const vmis: Vmi[] = generateVmiData();
+    const generateVmiData = (unproccessedData: any[]) => {
+        const vmis: Vmi[] = [];
+        unproccessedData.map((res) => {
+        const newRes: Vmi = { ...res, creationTime: new Date(res.creationTime) };
+            vmis.push(newRes);
+            return vmis;
+        });
+        return vmis;
+    };
+
   const vmis: Vmi[] = data;
-
   const [page, setPage] = React.useState(1);
   const [perPage, setPerPage] = React.useState(10);
   const [paginatedRows, setPaginatedRows] = React.useState(vmis.slice(0, 10));
@@ -87,6 +85,40 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
     setPage(newPage);
     setPerPage(newPerPage);
   };
+
+    const fetchDSLQuery = async (
+		vmiUUID: string,
+		nodeName: string
+	) => {
+        const retq = await axios.get("/getVMIQueryParams",
+            {
+                params: {
+                    vmiUUID: vmiUUID,
+                    nodeName: nodeName
+                }
+            }).then(function (resp) {
+                console.log("await2: ", resp.data.dslQuery)
+                const hostname = window.location.hostname
+                const hostnameParts = hostname.split('.');
+                const ingress = hostnameParts.slice(1).join('.');
+                const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
+                let suffix = ""
+                if (appNameParts.length > 1) {
+                    suffix = "-" + appNameParts.slice(1);
+                }
+                const kibanaHostname = "kibana" + suffix + "." + ingress;
+                
+                window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
+                return {
+                    query: resp.data.dslQuery, 
+                };
+            })
+            
+            return retq
+    }
+    //const openInNewTab = ({ row }: { row: Row<Vmi> }) => {
+    //    fetchDSLQuery(row.original.uuid, row.original.nodeName);
+    //}
 
   const renderPagination = (variant, isCompact) => (
     <Pagination
@@ -139,15 +171,15 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
 
   const defaultActions = (repo: Vmi): IAction[] => [
     {
-      title: "Open Logs",
-      onClick: () => console.log(`clicked on Some action, on row ${repo.name}`)
+      title: "Show Logs",
+      onClick: () => fetchDSLQuery(repo.uuid, repo.nodeName)
     },
     {
       isSeparator: true
     },
     {
-      title: "Third action",
-      onClick: () => console.log(`clicked on Third action, on row ${repo.name}`)
+      title: "Show logs since...",
+      onClick: () => console.log(`Not Implemented yet for ${repo.name}`)
     }
   ];
   const tableToolbar = (
@@ -172,7 +204,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
       } else {
         return (
           <Th
-            modifier="breakWord"
+            modifier="wrap"
             dataLabel={columnNames[key]}
           >
             {repo[key].toString()}
@@ -239,11 +271,11 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
       {tableToolbar}
     <TableComposable variant="compact" aria-label="Simple table">
       <Thead>
-        <Td />
         <Tr>
-          {Object.keys(columnNames).map((key, index) => {
-            return <Th>{columnNames[key]}</Th>;
-          })}
+            <Td />
+            {Object.keys(columnNames).map((key, index) => {
+                return <Th modifier="wrap">{columnNames[key]}</Th>;
+            })}
         </Tr>
       </Thead>
       { loadingData ? (loadingElem()) : (renderTableRows())}
