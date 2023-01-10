@@ -309,7 +309,7 @@ parameters:
   generate: expression
   name: SUFFIX
 - description: Storage class to use
-  value: ocs-storagecluster-cephfs
+  value: ocs-storagecluster-ceph-rbd
   name: STORAGE_CLASS
 - description: Image tag
   value: devel
