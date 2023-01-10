@@ -1,6 +1,6 @@
 import * as React from 'react';
 import axios from 'axios';
-import { PageSection, Title, FileUpload, Bullseye, Card, EmptyState, EmptyStateIcon, Spinner } from '@patternfly/react-core';
+import { PageSection, Title, FileUpload, Bullseye, Card, EmptyState, EmptyStateIcon, Spinner, Progress } from '@patternfly/react-core';
 import "@patternfly/react-core/dist/styles/base.css";
 
 
@@ -9,6 +9,7 @@ const ImportLogs: React.FunctionComponent = () => {
   const [filename, setFilename] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [progress, setProgress] = React.useState(0);
 
 
 const handleFileInputChange = (
@@ -16,6 +17,7 @@ const handleFileInputChange = (
     file: File
   ) => {
     setErrorMessage('');
+    setProgress(0);
     setFilename(file.name);
     setIsLoading(true);
     setErrorMessage(`Uploading.. ${file.name} - ${isLoading}`);
@@ -26,6 +28,15 @@ const handleFileInputChange = (
     const config = {
       headers: {
         'content-type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        const progress = (progressEvent.loaded / progressEvent.total) * 50;
+        setProgress(progress);
+      },
+      onDownloadProgress: (progressEvent) => {
+        const progress = 50 + (progressEvent.loaded / progressEvent.total) * 50;
+        console.log(progress);
+        setProgress(progress);
       },
     };
     axios.post(url, formData, config).then((response) => {
@@ -49,6 +60,7 @@ const handleFileInputChange = (
                   <Title size="lg" headingLevel="h2">
                     Uploading {filename}
                   </Title>
+                  <Progress value={fprogress} title="Title" min={0} max={100} label="Step 2: Copying files" valueText="Step 2: Copying file" />
                 </EmptyState>
   )
 const uploadForm = () => {
@@ -68,6 +80,7 @@ const uploadForm = () => {
 )}
 
 const isLoadingUpdate = isLoading;
+const fprogress = progress;
 return (
       <PageSection>
         <Bullseye>
