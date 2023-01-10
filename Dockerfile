@@ -9,7 +9,6 @@ ENV YARN_VERSION="v1.22.10"
 ENV HOME /opt/home
 RUN mkdir -p ${HOME}
 RUN mkdir -p /frontend/build
-RUN mkdir -p /frontend-alt/build
 RUN chmod 777 -R ${HOME}
 
 RUN cd /tmp && \
@@ -42,7 +41,6 @@ RUN go mod download
 
 COPY pkg/ pkg/
 COPY frontend/ frontend/
-COPY frontend-alt/ frontend-alt/
 COPY cmd/ cmd/
 RUN CGO_ENABLED=0 go build -o backend cmd/backend/backend.go
 RUN ./build-frontend.sh
@@ -51,5 +49,4 @@ FROM alpine:3.15
 WORKDIR /
 RUN ls -lsaR
 COPY --from=builder app/backend /
-COPY --from=builder app/frontend/build /frontend/build
-COPY --from=builder app/frontend-alt/dist /frontend-alt/build
+COPY --from=builder app/frontend/dist /frontend/build

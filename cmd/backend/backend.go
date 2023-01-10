@@ -1,7 +1,6 @@
 package main
 
 import (
-    //"net/http"
     "flag"
     "os"
 
@@ -13,8 +12,7 @@ func main() {
     fs.SetOutput(os.Stdout)
     log.Log.Println("Starting logsviewer")
     publicDir := fs.String("public-dir", "./frontend/build/", "directory containing static web assets.")
-    publicDirAlt := fs.String("public-dir-alt", "./frontend-alt/build/", "directory containing static web assets.")
-    if err := Spawn(*publicDir, *publicDirAlt); err != nil {
+    if err := Spawn(*publicDir); err != nil {
         panic(err)
     }
     
