@@ -30,7 +30,7 @@ const handleFileInputChange = (
         'content-type': 'multipart/form-data',
       },
       onUploadProgress: (progressEvent) => {
-        const progress = (progressEvent.loaded / progressEvent.total) * 50;
+        const progress = (progressEvent.loaded / progressEvent.total) * 100;
         setProgress(progress);
       },
       onDownloadProgress: (progressEvent) => {
