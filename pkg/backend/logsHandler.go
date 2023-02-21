@@ -12,6 +12,7 @@ import (
     "io/ioutil"
     "encoding/json"
     "sync"
+    "strconv"
 
 	k8sv1 "k8s.io/api/core/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -120,7 +121,7 @@ func unTarGz(srcFile string, targetPath string) error {
         }
 
 	// extract only the namespaces dir
-	if !strings.Contains(header.Name, "namespaces/") {
+	if !strings.Contains(header.Name, "namespaces/") && !strings.Contains(header.Name, "cluster-scoped-resources/") {
 		continue
 	}
 	
@@ -130,7 +131,7 @@ func unTarGz(srcFile string, targetPath string) error {
 	    // find path to the namespaces directory	
 	    sp := strings.Split(header.Name, "/")
 	    for _, ps := range sp {
-	        if ps == "namespaces" {
+	        if ps == "namespaces" || ps == "cluster-scoped-resources" {
 	            break
 	        }
             namespacePrefixPath = append(namespacePrefixPath, ps)
@@ -148,6 +149,23 @@ func unTarGz(srcFile string, targetPath string) error {
 	        return err
             }
         case tar.TypeReg:
+            // if such file already exist, add/increse its version
+            if _, err := os.Stat(newTarget); err == nil {
+                
+                ext := filepath.Ext(newTarget)
+                filenameBase := strings.TrimSuffix(newTarget, ext)
+                sp := strings.Split(filenameBase, "_")
+                suffixIndexStr := sp[len(sp)-1]
+                suffixIndex, err := strconv.Atoi(suffixIndexStr)
+                if err != nil {
+                    filenameBase += "_1"
+                } else {
+                    fileN := strings.TrimSuffix(filenameBase, fmt.Sprintf("_%d", suffixIndex))
+                    suffixIndex += 1
+                    filenameBase = fmt.Sprintf("%s_%d", fileN, suffixIndex)
+                }
+                newTarget = fmt.Sprintf("%s%s", filenameBase, ext)
+            }
             outFile, err := os.Create(newTarget)
 
 	    if err != nil {
@@ -264,6 +282,18 @@ func (l *logsHandler) storeVMIMListData(yamlFile []byte) error {
     return nil
 }
 
+func (l *logsHandler) storeNodeData(yamlFile []byte) error {
+    var node k8sv1.Node
+
+    err := yaml.Unmarshal(yamlFile, &node)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal node yaml  - ", err)
+      return err
+    }
+
+    l.objectStore.Add(&node)
+    return nil
+}
 
 func (l *logsHandler) processPodYAMLs() error {
     var pod Pods
@@ -392,5 +422,29 @@ func (l *logsHandler) processVirtualMachineInstanceMigrationsYAMLs() error {
 
 
     log.Log.Println("finished processing VMIM YAMLs")
+    return nil
+} 
+
+func (l *logsHandler) processNodeYAMLs() error {
+    l.handlerLock.Lock()
+    defer l.handlerLock.Unlock()
+
+
+    //TODO: make path configurable
+    layouts, err := filepath.Glob("/space/cluster-scoped-resources/core/nodes/*.yaml")
+    if err != nil {
+        return(err)
+    }
+
+    for _, filename := range layouts {
+        log.Log.Println("processing node YAML: ", filename)
+        yamlFile, err := ioutil.ReadFile(filename)
+        if err != nil {
+          return err
+        }
+        l.storeNodeData(yamlFile)
+    }
+
+    log.Log.Println("finished processing node YAMLs")
     return nil
 } 

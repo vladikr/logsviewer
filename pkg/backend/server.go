@@ -149,6 +149,45 @@ func (c *app) getPods(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func (c *app) getNodes(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get nodes Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+	currentPage := 1
+
+    page, err   := strconv.Atoi(fmt.Sprint(params["page"]))
+    if err == nil {
+        if page >= 1 {
+            currentPage = page
+        }
+    }
+
+    pageSize := -1
+    perPage, err := strconv.Atoi(fmt.Sprint(params["per_page"]))
+    if err == nil {
+        if perPage >= 1 {
+            pageSize = perPage
+        }  
+    }
+
+	data, err := c.storeDB.GetNodes(currentPage, pageSize)
+    if err != nil {
+        log.Log.Println("failed to get nodes!", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(data); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
 func (c *app) getVmis(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Vmis Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -313,6 +352,37 @@ func (c *app) getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func (c *app) getSinglePodQueryParams(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Pod Query Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+    podUUID, exist   := params["uuid"]
+    if !exist {
+        log.Log.Println("failed to find uuid in the podQuery Params")
+		http.Error(w, "failed to find uuid in the podQuery Params", http.StatusInternalServerError)
+        return
+    }
+
+	data, err := c.storeDB.GetPodQueryParams(fmt.Sprintf("%s", podUUID))
+    if err != nil {
+        log.Log.Println("failed to fetch pod params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    dslQuery := formatSinglePodDSLQuery(data)
+    resp := map[string]string{"dslQuery": dslQuery}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(resp); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
 func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
     fmt.Println("File Upload Endpoint Hit")
     log.Log.Println("File Upload Endpoint Hit")
@@ -383,6 +453,10 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
             return
         }
         if err := logsHandler.processVirtualMachineInstanceMigrationsYAMLs(); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        if err := logsHandler.processNodeYAMLs(); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
@@ -462,10 +536,12 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   //TODO: move to an API sub
   mux.HandleFunc("/uploadLogs", app.uploadLogs)
   mux.HandleFunc("/pods", app.getPods)
+  mux.HandleFunc("/nodes", app.getNodes)
   mux.HandleFunc("/vmis", app.getVmis)
   mux.HandleFunc("/vmims", app.getVmiMigrations)
   mux.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
   mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
+  mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)
   log.Log.Println("Routes set")
   return mux, nil
 

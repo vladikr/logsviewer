@@ -74,47 +74,6 @@ const Pods: React.FunctionComponent = () => {
     return pods;
   };
 
-  /*const formatPodData = () => {
-    const kuki: Repository[] = [
-      {
-        name: "Node 1",
-        branches: "10",
-        prs: "2",
-        nestedComponent: <NestedReposTable />,
-        link: <a>Link 1</a>
-      },
-      { name: "Node 2", branches: "3", prs: "4", link: <a>Link 2</a> },
-      {
-        name: "Node 3",
-        branches: "11",
-        prs: "7",
-        nestedComponent: (
-          <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            aliquip ex ea commodo consequat. Duis aute irure dolor in
-            reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-            culpa qui officia deserunt mollit anim id est laborum.
-          </p>
-        ),
-        link: <a>Link 3</a>
-      },
-      {
-        name: "Node 4",
-        branches: "11",
-        prs: "7",
-        nestedComponent: "Expandable row content has no padding.",
-        link: <a>Link 4</a>,
-        noPadding: true
-      }
-    ];
-    console.log(kuki);
-
-    return kuki;
-  };*/
-
   // In real usage, this data would come from some external source like an API via props.
   //const repositories: Repository[] = formatPodData()
   const pods: Pod[] = data;
@@ -131,6 +90,34 @@ const Pods: React.FunctionComponent = () => {
     setPage(newPage);
     setPerPage(newPerPage);
   };
+  const fetchDSLQuery = async (
+  	uuid: string
+  ) => {
+      const retq = await axios.get("/getSinglePodQueryParams",
+          {
+              params: {
+                  uuid: uuid
+              }
+          }).then(function (resp) {
+              console.log("await2: ", resp.data.dslQuery)
+              const hostname = window.location.hostname
+              const hostnameParts = hostname.split('.');
+              const ingress = hostnameParts.slice(1).join('.');
+              const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
+              let suffix = ""
+              if (appNameParts.length > 1) {
+                  suffix = "-" + appNameParts.slice(1);
+              }
+              const kibanaHostname = "kibana" + suffix + "." + ingress;
+              
+              window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
+              return {
+                  query: resp.data.dslQuery, 
+              };
+          })
+          
+          return retq
+  }
 
   const renderPagination = (variant, isCompact) => (
     <Pagination
@@ -184,11 +171,8 @@ const Pods: React.FunctionComponent = () => {
 
   const defaultActions = (repo: Pod): IAction[] => [
     {
-      title: "Some action",
-      onClick: () => console.log(`clicked on Some action, on row ${repo.name}`)
-    },
-    {
-      title: <a href="https://www.patternfly.org">Link action</a>
+      title: "Show Logs",
+      onClick: () => fetchDSLQuery(repo.uuid)
     },
     {
       isSeparator: true

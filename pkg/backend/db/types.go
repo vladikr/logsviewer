@@ -58,6 +58,19 @@ type (
 		Content json.RawMessage `json:"content"`
 	}
 
+	Node struct {
+		Name                        string `json:"name"`
+		SystemUUID                  string `json:"systemUuid"`
+        Status                      string `json:"status"`
+        InternalIP                  string `json:"internalIP"`
+        HostName                    string `json:"hostName"`
+        OsImage                     string `json:"osImage"`
+        KernelVersion               string `json:"kernelVersion"`
+        KubletVersion               string `json:"kubletVersion"`
+        ContainerRuntimeVersion     string `json:"containerRuntimeVersion"`
+		Content                     json.RawMessage `json:"content"`
+	}
+
 	QueryResults struct {
         Namespace   string
         SourcePodUUID     string

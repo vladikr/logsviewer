@@ -48,6 +48,35 @@ func (d *DatabaseInstance) StorePod(pod *Pod) error {
 	return nil
 } 
 
+func (d *DatabaseInstance) StoreNode(node *Node) error {
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	stmt, err := d.db.PrepareContext(ctx, insertNodeQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(
+        ctx,
+        node.Name,
+        node.SystemUUID,
+        node.Status,
+        node.InternalIP,
+        node.HostName,
+        node.OsImage,
+        node.KernelVersion,
+        node.KubletVersion,
+        node.ContainerRuntimeVersion,
+        node.Content)
+	if err != nil {
+		return err
+	}
+
+	return nil
+} 
+
 func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	// TimeString - given a time, return the MySQL standard string representation
 	madeAt := vmi.CreationTime.Format("2006-01-02 15:04:05.999999")
@@ -142,6 +171,7 @@ var (
 	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
 	insertVmiQuery       = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 	insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
+	insertNodeQuery       = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
 )
 
 var (
@@ -233,6 +263,9 @@ func (d *DatabaseInstance) createTables() error {
     if err := d.createPodsTable(); err != nil {
 		return err
 	}
+    if err := d.createNodesTable(); err != nil {
+		return err
+	}
     if err := d.createVmisTable(); err != nil {
 		return err
 	}
@@ -314,6 +347,31 @@ func (d *DatabaseInstance) createVmiMigrationsTable() error {
 	);
 	`
 	err := d.execTable(vmimsTableCreate)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DatabaseInstance) createNodesTable() error {
+
+	createNodesTable := `
+	CREATE TABLE IF NOT EXISTS nodes (
+	  name varchar(100),
+	  systemUuid varchar(100),
+	  status varchar(100),
+	  internalIP varchar(100),
+	  hostName varchar(100),
+      osImage varchar(100),
+      kernelVersion varchar(100),
+      kubletVersion varchar(100),
+      containerRuntimeVersion varchar(100),
+      content json,
+	  PRIMARY KEY (name)
+	);
+	`
+	err := d.execTable(createNodesTable)
 	if err != nil {
 		return err
 	}
@@ -505,8 +563,40 @@ func (d *DatabaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (Q
     return results, nil 
 }
 
+func (d *DatabaseInstance) GetPodQueryParams(podUUID string) (QueryResults, error) {
+    results := QueryResults{}
+ 
+	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where uuid='%s'", podUUID)
+
+
+    // get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString) 
+    err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
+            return results, err
+        } else {
+            log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
+            return results, err
+        }
+    } 
+    
+
+    return results, nil 
+}
+
 func (d *DatabaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"
+    resultsMap, err := d.genericGet(queryString, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+    return resultsMap, nil 
+}
+
+func (d *DatabaseInstance) GetNodes(page int, perPage int) (map[string]interface{}, error) {
+	queryString := "select name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion from nodes"
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err

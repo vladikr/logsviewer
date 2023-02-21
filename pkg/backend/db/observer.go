@@ -146,6 +146,53 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
 	return nil
 }
 
+func (d *ObjectStore) storeNode(node *k8sv1.Node) error {
+    jsonBytes, err := json.Marshal(node)
+    if err != nil {
+        log.Log.Println("failed to marshal node object ", node, " err: ", err)
+    }
+
+    nodeStatus := "NotReady"
+    for _, condition := range node.Status.Conditions {
+        if condition.Type == "Ready" {
+            nodeStatus = "Ready"
+        }
+    }
+
+    nodeInternalIP := ""
+    nodeHostName := ""
+    for _, address := range node.Status.Addresses {
+        switch address.Type {
+        case "InternalIP":
+            nodeInternalIP = address.Address
+        case "Hostname":
+            nodeHostName = address.Address
+        default:
+            continue
+        }
+    }
+
+    name := node.GetObjectMeta().GetName()
+	storeObj := &Node{
+		Name:      name,
+        Status:    nodeStatus,    
+		SystemUUID: node.Status.NodeInfo.SystemUUID,
+        InternalIP: nodeInternalIP,
+        HostName: nodeHostName,
+        OsImage: node.Status.NodeInfo.OSImage,
+        KernelVersion: node.Status.NodeInfo.KernelVersion,
+        KubletVersion: node.Status.NodeInfo.KubeletVersion,
+        ContainerRuntimeVersion: node.Status.NodeInfo.ContainerRuntimeVersion,
+        Content: jsonBytes,
+	}
+	if err := d.storeDB.StoreNode(storeObj); err != nil {
+        log.Log.Println("failed to store obj  ", storeObj, " err: ", err)
+		return err
+	}
+	return nil
+}
+
+
 func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
     jsonBytes, err := json.Marshal(vmi)
     if err != nil {
@@ -207,6 +254,11 @@ func (d *ObjectStore) processObject(obj interface{}) {
 		if err := d.storePod(podObj); err == nil {
             log.Log.Println("stored obj  ", podObj)
 		}
+	case *k8sv1.Node:
+		nodeObj := obj.(*k8sv1.Node)
+		if err := d.storeNode(nodeObj); err == nil {
+            log.Log.Println("stored obj  ", nodeObj)
+		}
 	case *kubevirtv1.VirtualMachineInstance:
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
 		if err := d.storeVmi(vmi); err == nil {
@@ -234,6 +286,11 @@ func (d *ObjectStore) Add(obj interface{}) {
         
         d.wg.Add(1)    
 	    d.Queue.Add(podObj)
+	case *k8sv1.Node:
+		nodeObj := obj.(*k8sv1.Node)
+        
+        d.wg.Add(1)    
+	    d.Queue.Add(nodeObj)
 	case *kubevirtv1.VirtualMachineInstance:
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
         
