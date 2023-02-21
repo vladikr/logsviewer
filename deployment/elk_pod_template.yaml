@@ -76,6 +76,8 @@ objects:
       server.shutdownTimeout: 5s
       elasticsearch.hosts: ['http://localhost:9200']
       monitoring.ui.container.elasticsearch.enabled: true
+      xpack.reporting.kibanaServer.hostname: localhost
+      xpack.reporting.roles.enabled: false
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -215,7 +217,7 @@ objects:
       lifecycle:
         postStart:
           exec:
-            command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
+            command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 120"]
       ports:
       - containerPort: 5601
         name: ui
