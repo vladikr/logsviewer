@@ -11,7 +11,7 @@ import {
   SkipToContent
 } from '@patternfly/react-core';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
-import logo from '@app/bgimages/Patternfly-Logo.svg';
+import logo from '@app/bgimages/1.png';
 
 interface IAppLayout {
   children: React.ReactNode;
