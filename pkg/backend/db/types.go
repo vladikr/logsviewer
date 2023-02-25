@@ -84,4 +84,12 @@ type (
         SourceHandler string
         TargetHandler string
 	}
+
+    GenericQueryDetails struct {
+        UUID string
+        Name string
+        Namespace string
+        Yaml bool
+    }
+
 )

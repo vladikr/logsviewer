@@ -14,6 +14,7 @@ import (
     "logsviewer/pkg/backend/log"
     "logsviewer/pkg/backend/db"
 
+    "sigs.k8s.io/yaml"
     "github.com/gorilla/websocket"
 )
 
@@ -117,6 +118,18 @@ func (c *app) getPods(w http.ResponseWriter, r *http.Request) {
             params[k] = v[0]
     }
 
+    queryDetails := db.GenericQueryDetails{}
+    if podName, exist := params["name"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(podName)), &queryDetails)
+    }
+    if podNamespace, exist := params["namespace"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(podNamespace)), &queryDetails)
+    }
+    if podUUID, exist := params["uuid"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(podUUID)), &queryDetails)
+    }
+
+
 	currentPage := 1
 
     page, err   := strconv.Atoi(fmt.Sprint(params["page"]))
@@ -134,7 +147,7 @@ func (c *app) getPods(w http.ResponseWriter, r *http.Request) {
         }  
     }
 
-	data, err := c.storeDB.GetPods(currentPage, pageSize)
+	data, err := c.storeDB.GetPods(currentPage, pageSize, &queryDetails)
     if err != nil {
         log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -233,7 +246,7 @@ func (c *app) getVmiMigrations(w http.ResponseWriter, r *http.Request) {
 	for k, v := range r.URL.Query() {
             params[k] = v[0]
     }
-    vmiDetails := db.VMIMigrationQueryDetails{}
+    vmiDetails := db.GenericQueryDetails{}
     if vmiName, exist := params["name"]; exist {
         log.Log.Println("vmiName: ", vmiName)
         json.Unmarshal([]byte(fmt.Sprint(vmiName)), &vmiDetails)
@@ -343,6 +356,44 @@ func (c *app) getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     dslQuery := formatVMIMigrationDSLQuery(data)
     resp := map[string]string{"dslQuery": dslQuery}
     log.Log.Println("getMigrationQueryParams encoded: ", resp)
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(resp); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
+func (c *app) getPodYaml(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Pod Yaml Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+    podUUID, exist   := params["uuid"]
+    if !exist {
+        log.Log.Println("failed to find uuid in the podQuery Params")
+		http.Error(w, "failed to find uuid in the podQuery Params", http.StatusInternalServerError)
+        return
+    }
+
+	podObj, err := c.storeDB.GetPodObject(fmt.Sprintf("%s", podUUID))
+    if err != nil {
+        log.Log.Println("failed to fetch pod params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+
+    // convert Pod Object to Yaml
+    outYaml, errYaml := yaml.Marshal(podObj)
+    if errYaml != nil {
+	    http.Error(w, "failed marshal pod to yaml", http.StatusInternalServerError)
+        return
+    }
+
+    resp := map[string]string{"yaml": string(outYaml)}
     w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	w.WriteHeader(200)  
     enc := json.NewEncoder(w)
@@ -542,6 +593,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   mux.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
   mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
   mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)
+  mux.HandleFunc("/getPodYaml", app.getPodYaml)
   log.Log.Println("Routes set")
   return mux, nil
 

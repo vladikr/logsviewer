@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
     "strconv"
+    "strings"
 
+	k8sv1 "k8s.io/api/core/v1"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
     "logsviewer/pkg/backend/log"
@@ -212,11 +214,6 @@ func NewDatabaseInstance() (*DatabaseInstance, error) {
 	}
 
 	return dbInstance, nil
-}
-
-type VMIMigrationQueryDetails struct {
-    Name string
-    Namespace string
 }
 
 func (d *DatabaseInstance) Shutdown() (err error) {
@@ -586,13 +583,65 @@ func (d *DatabaseInstance) GetPodQueryParams(podUUID string) (QueryResults, erro
     return results, nil 
 }
 
-func (d *DatabaseInstance) GetPods(page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetPods(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"
+    if queryDetails != nil {
+        conditions := []string{}
+        if (*queryDetails != (GenericQueryDetails{})) {
+            queryString = fmt.Sprintf("%s where ", queryString)
+        }
+
+        if  queryDetails.Name != "" {
+            conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+        }
+        if  queryDetails.Namespace != "" {
+            conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
+        }
+        if  queryDetails.UUID != "" {
+            conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+        }
+        
+        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+    }
+    
+    log.Log.Println("queryString: ", queryString)
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
     return resultsMap, nil 
+}
+
+func (d *DatabaseInstance) GetPodObject(podUUID string) (*k8sv1.Pod, error) {
+    var content json.RawMessage
+ 
+	queryString := fmt.Sprintf("select content from pods where uuid = '%s'", podUUID)
+
+    // get source virt-launcher info
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&content)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
+            return nil, err
+        } else {
+            log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
+            return nil, err
+        }
+    }
+
+    
+    // Unmashal json
+    var pod k8sv1.Pod
+
+    err = json.Unmarshal(content, &pod)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal json to pod - ", err)
+      return nil, err
+    }
+ 
+    return &pod, nil 
+
 }
 
 func (d *DatabaseInstance) GetNodes(page int, perPage int) (map[string]interface{}, error) {
@@ -613,13 +662,29 @@ func (d *DatabaseInstance) GetVmis(page int, perPage int) (map[string]interface{
     return resultsMap, nil 
 }
 
-func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *VMIMigrationQueryDetails) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *GenericQueryDetails) (map[string]interface{}, error) {
 
 	queryString := "select name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations"
 
-    if vmiDetails != nil && vmiDetails.Name != "" {
-        queryString = fmt.Sprintf("%s where vmiName='%s' AND namespace='%s'", queryString, vmiDetails.Name, vmiDetails.Namespace)
+    if vmiDetails != nil {
+        conditions := []string{}
+        if (*vmiDetails != (GenericQueryDetails{})) {
+            queryString = fmt.Sprintf("%s where ", queryString)
+        }
+
+        if  vmiDetails.Name != "" {
+            conditions = append(conditions, fmt.Sprintf("vmiName='%s'", vmiDetails.Name))
+        }
+        if  vmiDetails.Namespace != "" {
+            conditions = append(conditions, fmt.Sprintf("namespace='%s'", vmiDetails.Namespace))
+        }
+        if  vmiDetails.UUID != "" {
+            conditions = append(conditions, fmt.Sprintf("uuid='%s'", vmiDetails.UUID))
+        }
+        
+        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
     }
+    
     log.Log.Println("queryString: ", queryString)
     resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
