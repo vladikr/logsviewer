@@ -2,6 +2,7 @@
 
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
@@ -33,6 +34,7 @@ module.exports = (env) => {
             path.resolve(__dirname, 'node_modules/@patternfly/react-core/dist/styles/assets/pficon'),
             path.resolve(__dirname, 'node_modules/@patternfly/patternfly/assets/fonts'),
             path.resolve(__dirname, 'node_modules/@patternfly/patternfly/assets/pficon'),
+            path.resolve(__dirname, 'node_modules/monaco-editor/esm/vs/base/browser/ui'),
           ],
           use: {
             loader: 'file-loader',
@@ -124,6 +126,9 @@ module.exports = (env) => {
     plugins: [
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, 'src', 'index.html'),
+      }),
+      new MonacoWebpackPlugin({
+        languages: ['json', 'yaml', 'shell'],
       }),
       new Dotenv({
         systemvars: true,

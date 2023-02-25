@@ -29,7 +29,7 @@ module.exports = merge(common('production'), {
   module: {
     rules: [
       {
-        test: /\.css$/,
+        test: /\.s?css$/,
         include: [...stylePaths],
         use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
