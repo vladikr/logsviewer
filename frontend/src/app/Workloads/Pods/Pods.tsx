@@ -1,5 +1,6 @@
 import * as React from 'react';
 import "@patternfly/react-core/dist/styles/base.css";
+import { PodTabs } from '@app/Workloads/Pods/PodTabs';
 import axios from 'axios';
 import {
   TableComposable,
@@ -13,9 +14,25 @@ import {
   IAction
 } from "@patternfly/react-table";
 import {
+  Divider,
+  Drawer,
+  DrawerContent,
+  DrawerContentBody,
+  DrawerPanelContent,
+  DrawerHead,
+  DrawerActions,
+  DrawerCloseButton,
+  DrawerPanelBody,
+  Flex,
+  FlexItem,  
   Card,
   Pagination,
   PageSection,
+  Tabs,
+  Tab,
+  TabContent,
+  TabContentBody,
+  TabTitleText,
   Toolbar,
   ToolbarContent,
   ToolbarGroup,
@@ -27,6 +44,7 @@ const Pods: React.FunctionComponent = () => {
 
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
+
 
   	React.useEffect(() => {
     	async function getData() {
@@ -216,13 +234,38 @@ const Pods: React.FunctionComponent = () => {
 
   const renderTableRows = () => (
      
-    paginatedRows.map((repo, rowIndex) => (
-        <Tbody key={repo.name}>
+    paginatedRows.map((repo, rowIndex) => {
+        repo.nestedComponent = <PodTabs name={repo.name} namespace={repo.namespace} uuid={repo.uuid}/>
+        return (
+        <Tbody key={repo.name} isExpanded={isRepoExpanded(repo)}>
           <Tr>
+          <Td
+              expand={
+                repo.nestedComponent
+                  ? {
+                      rowIndex,
+                      isExpanded: isRepoExpanded(repo),
+                      onToggle: () => setRepoExpanded(repo, !isRepoExpanded(repo)),
+                      expandId: 'composable-nested-table-expandable-example'
+                    }
+                  : undefined
+              }
+            />
           {generateTableCells(repo)}
         </Tr>
+        {repo.nestedComponent ? (
+            <Tr isExpanded={isRepoExpanded(repo)}>
+              <Td
+                noPadding={repo.noPadding}
+                dataLabel={`${columnNames.name} expended`}
+                colSpan={Object.keys(columnNames).length + 1}
+              >
+                <ExpandableRowContent>{isRepoExpanded(repo) ? repo.nestedComponent : null }</ExpandableRowContent>
+              </Td>
+            </Tr>
+          ) : null}
       </Tbody>
-        )
+        )}
     )
     
     )
@@ -239,13 +282,15 @@ const Pods: React.FunctionComponent = () => {
   )
 
 
-  return (
-    <PageSection>
-    <Card>
-      {tableToolbar}
+
+
+
+
+const tableComposable = (
     <TableComposable variant="compact" aria-label="Simple table">
       <Thead>
         <Tr>
+          <Td />
           {Object.keys(columnNames).map((key, index) => {
             return <Th modifier="wrap">{columnNames[key]}</Th>;
           })}
@@ -253,9 +298,18 @@ const Pods: React.FunctionComponent = () => {
       </Thead>
       { loadingData ? (loadingElem()) : (renderTableRows())}
     </TableComposable>
-    {renderPagination("bottom", false)}
-    </Card>
-  </PageSection>
+);
+
+  return (
+    <PageSection>
+        <Card>
+            {tableToolbar}
+            <Divider />
+            {tableComposable}
+            {renderPagination("bottom", false)}
+        </Card>
+    </PageSection>
+
 );
 }
 
