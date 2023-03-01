@@ -37,8 +37,8 @@ return (
                 <MonacoEditor
                    language="yaml"
                    theme="console"
-                   height="80%"
-                   width="400px"
+                   height="400px"
+                   width="900px"
                    value={data}
                    editorDidMount={onEditorDidMount}
                    onChange={onChange}

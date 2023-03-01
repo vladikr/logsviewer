@@ -1,7 +1,8 @@
 import * as React from 'react';
 import "@patternfly/react-core/dist/styles/base.css";
 import axios from 'axios';
-import { Migrations } from '@app/Workloads/Migrations/Migrations';
+import { VirtualMachineInstancesTabs } from '@app/Workloads/VirtualMachineInstances/VirtualMachineInstancesTabs';
+//import { Migrations } from '@app/Workloads/Migrations/Migrations';
 import {
   TableComposable,
   Thead,
@@ -218,7 +219,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
     return (
     
     newDataRows.map((repo, rowIndex) => { 
-        repo.nestedComponent = <Migrations name={repo.name} namespace={repo.namespace}/>
+        repo.nestedComponent = <VirtualMachineInstancesTabs name={repo.name} namespace={repo.namespace} uuid={repo.uuid} />
         return (
         <Tbody key={repo.name} isExpanded={isRepoExpanded(repo)}>
           <Tr>
@@ -243,7 +244,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
                 dataLabel={`${columnNames.name} expended`}
                 colSpan={Object.keys(columnNames).length + 1}
               >
-                <ExpandableRowContent>{repo.nestedComponent}</ExpandableRowContent>
+                <ExpandableRowContent>{isRepoExpanded(repo) ? repo.nestedComponent : null }</ExpandableRowContent>
               </Td>
             </Tr>
           ) : null}

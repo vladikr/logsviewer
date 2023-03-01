@@ -10,6 +10,7 @@ import (
     "strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
     "logsviewer/pkg/backend/log"
@@ -610,6 +611,68 @@ func (d *DatabaseInstance) GetPods(page int, perPage int, queryDetails *GenericQ
 		return nil, err
 	}
     return resultsMap, nil 
+}
+
+func (d *DatabaseInstance) GetNodeObject(nodeUUID string) (*k8sv1.Node, error) {
+    var content json.RawMessage
+ 
+	queryString := fmt.Sprintf("select content from nodes where systemUuid = '%s'", nodeUUID)
+
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&content)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("can't find nodes with this uuid: ", nodeUUID)
+            return nil, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for uuid: ", nodeUUID)
+            return nil, err
+        }
+    }
+
+    
+    // Unmashal json
+    var node k8sv1.Node
+
+    err = json.Unmarshal(content, &node)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal json to node object - ", err)
+      return nil, err
+    }
+ 
+    return &node, nil 
+
+}
+
+func (d *DatabaseInstance) GetVMIObject(vmiUUID string) (*kubevirtv1.VirtualMachineInstance, error) {
+    var content json.RawMessage
+ 
+	queryString := fmt.Sprintf("select content from vmis where uuid = '%s'", vmiUUID)
+
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&content)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("can't find VMIs with this uuid: ", vmiUUID)
+            return nil, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for uuid: ", vmiUUID)
+            return nil, err
+        }
+    }
+
+    
+    // Unmashal json
+    var vmi kubevirtv1.VirtualMachineInstance
+
+    err = json.Unmarshal(content, &vmi)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal json to vmi object - ", err)
+      return nil, err
+    }
+ 
+    return &vmi, nil 
+
 }
 
 func (d *DatabaseInstance) GetPodObject(podUUID string) (*k8sv1.Pod, error) {

@@ -92,8 +92,6 @@ const Pods: React.FunctionComponent = () => {
     return pods;
   };
 
-  // In real usage, this data would come from some external source like an API via props.
-  //const repositories: Repository[] = formatPodData()
   const pods: Pod[] = data;
 
   const [page, setPage] = React.useState(1);
@@ -166,9 +164,6 @@ const Pods: React.FunctionComponent = () => {
     createdBy: "created By",
     action: "Action"
   };
-  // In this example, expanded rows are tracked by the repo names from each row. This could be any unique identifier.
-  // This is to prevent state from being based on row order index in case we later add sorting.
-  // Note that this behavior is very similar to selection state.
   const initialExpandedRepoNames = pods
     .filter((repo) => !!repo.nestedComponent)
     .map((repo) => repo.name); // Default to all expanded

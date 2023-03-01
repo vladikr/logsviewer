@@ -22,6 +22,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { NodeTabs } from '@app/Nodes/NodeTabs';
 
 const Nodes: React.FunctionComponent = () => {
 
@@ -117,9 +118,6 @@ const Nodes: React.FunctionComponent = () => {
     containerRuntimeVersion: "Runtime",
     action: "Action"
   };
-  // In this example, expanded rows are tracked by the repo names from each row. This could be any unique identifier.
-  // This is to prevent state from being based on row order index in case we later add sorting.
-  // Note that this behavior is very similar to selection state.
   const initialExpandedRepoNames = nodes
     .filter((repo) => !!repo.nestedComponent)
     .map((repo) => repo.name); // Default to all expanded
@@ -185,13 +183,38 @@ const Nodes: React.FunctionComponent = () => {
 
   const renderTableRows = () => (
      
-    paginatedRows.map((repo, rowIndex) => (
-        <Tbody key={repo.name}>
+    paginatedRows.map((repo, rowIndex) => {
+        repo.nestedComponent = <NodeTabs uuid={repo.systemUuid} />
+        return (
+        <Tbody key={repo.name} isExpanded={isRepoExpanded(repo)}>
           <Tr>
+          <Td
+              expand={
+                repo.nestedComponent
+                  ? {
+                      rowIndex,
+                      isExpanded: isRepoExpanded(repo),
+                      onToggle: () => setRepoExpanded(repo, !isRepoExpanded(repo)),
+                      expandId: 'composable-nested-table-expandable-example'
+                    }
+                  : undefined
+              }
+            />
           {generateTableCells(repo)}
         </Tr>
+        {repo.nestedComponent ? (
+            <Tr isExpanded={isRepoExpanded(repo)}>
+              <Td
+                noPadding={repo.noPadding}
+                dataLabel={`${columnNames.name} expended`}
+                colSpan={Object.keys(columnNames).length + 1}
+              >
+                <ExpandableRowContent>{isRepoExpanded(repo) ? repo.nestedComponent : null }</ExpandableRowContent>
+              </Td>
+            </Tr>
+          ) : null}
       </Tbody>
-        )
+        )}
     )
     
     )
@@ -215,6 +238,7 @@ const Nodes: React.FunctionComponent = () => {
     <TableComposable variant="compact" aria-label="Simple table">
       <Thead>
         <Tr>
+          <Td />
           {Object.keys(columnNames).map((key, index) => {
             return <Th modifier="wrap">{columnNames[key]}</Th>;
           })}

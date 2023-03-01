@@ -365,6 +365,71 @@ func (c *app) getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func (c *app) getObjYaml(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get Object Yaml Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+    objType, exist   := params["object"]
+    if !exist {
+        log.Log.Println("failed to find object type in the Query Params")
+		http.Error(w, "failed to find object type in the Query Params", http.StatusInternalServerError)
+        return
+    }
+
+    UUID, exist   := params["uuid"]
+    if !exist {
+        log.Log.Println("failed to find uuid in the podQuery Params")
+		http.Error(w, "failed to find uuid in the podQuery Params", http.StatusInternalServerError)
+        return
+    }
+    
+    var retObject interface{}
+    var err error
+    switch objType {
+    case "pod":
+        retObject, err = c.storeDB.GetPodObject(fmt.Sprintf("%s", UUID))
+        if err != nil {
+            log.Log.Println("failed to fetch pod params", err)
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+    case "vmi":
+        retObject, err = c.storeDB.GetVMIObject(fmt.Sprintf("%s", UUID))
+        if err != nil {
+            log.Log.Println("failed to fetch vmi params", err)
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+    case "node":
+        retObject, err = c.storeDB.GetNodeObject(fmt.Sprintf("%s", UUID))
+        if err != nil {
+            log.Log.Println("failed to fetch node params", err)
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+    }
+
+
+    // convert Pod Object to Yaml
+    outYaml, errYaml := yaml.Marshal(retObject)
+    if errYaml != nil {
+	    http.Error(w, "failed marshal obj to yaml", http.StatusInternalServerError)
+        return
+    }
+
+    resp := map[string]string{"yaml": string(outYaml)}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(resp); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
+
 func (c *app) getPodYaml(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get Pod Yaml Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -594,6 +659,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
   mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)
   mux.HandleFunc("/getPodYaml", app.getPodYaml)
+  mux.HandleFunc("/getObjYaml", app.getObjYaml)
   log.Log.Println("Routes set")
   return mux, nil
 
