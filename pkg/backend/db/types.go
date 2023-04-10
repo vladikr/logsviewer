@@ -71,6 +71,21 @@ type (
 		Content                     json.RawMessage `json:"content"`
 	}
 
+	PersistentVolumeClaim struct {
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
+		UUID      string `json:"uuid"`
+        AccessModes string `json:"accessModes"`
+        StorageClassName string `json:"storageClassName"`
+        VolumeName         string `json:"volumeName"`
+        VolumeMode         string `json:"volumeMode"`
+        Reason     string `json:"reason"`
+        Phase     string `json:"phase"`
+        Capacity  string `json:"capacity"`
+        CreationTime     metav1.Time `json:"creationTime"`
+		Content json.RawMessage `json:"content"`
+	}
+
 	QueryResults struct {
         Namespace   string
         SourcePodUUID     string

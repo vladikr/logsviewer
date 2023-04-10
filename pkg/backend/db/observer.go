@@ -84,7 +84,6 @@ func (c *ObjectStore) Execute() bool {
 	defer c.Queue.Done(obj)
 	if err := c.execute(obj); err != nil {
         log.Log.Println("re-enqueuing object ", obj, " err: ", err)
-		//c.Queue.AddRateLimited(obj)
 	} else {
 		c.Queue.Forget(obj)
         c.wg.Done()
@@ -220,12 +219,12 @@ func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (d *ObjectStore) storeVmiMigration(vmim *kubevirtv1.VirtualMachineInstanceMigration) error {
+func (d *ObjectStore) storeVmiMigration(vmim kubevirtv1.VirtualMachineInstanceMigration) error {
     jsonBytes, err := json.Marshal(vmim)
     if err != nil {
         log.Log.Println("failed to marshal vmi migration object ", vmim, " err: ", err)
+        return err
     }
-    log.Log.Println("Marshaled VMIM YAML: ", string(jsonBytes))
 
     name := vmim.GetObjectMeta().GetName()
     namespace := vmim.GetObjectMeta().GetNamespace()
@@ -239,7 +238,16 @@ func (d *ObjectStore) storeVmiMigration(vmim *kubevirtv1.VirtualMachineInstanceM
         CreationTime: vmim.CreationTimestamp,
         Content: jsonBytes,
 	}
-    log.Log.Println("storeObj VMIM YAML: ", storeObj)
+
+    if migrationState := vmim.Status.MigrationState; migrationState != nil {
+        storeObj.TargetPod = migrationState.TargetPod
+        storeObj.CreationTime = *migrationState.StartTimestamp
+        storeObj.EndTimestamp = *migrationState.EndTimestamp
+        storeObj.SourceNode = migrationState.SourceNode
+        storeObj.TargetNode = migrationState.TargetNode
+        storeObj.Completed = migrationState.Completed
+        storeObj.Failed = migrationState.Failed
+    }
 	if err := d.storeDB.StoreVmiMigration(storeObj); err != nil {
         log.Log.Println("failed to store vmi migration obj  ", storeObj, " err: ", err)
 		return err
@@ -247,7 +255,59 @@ func (d *ObjectStore) storeVmiMigration(vmim *kubevirtv1.VirtualMachineInstanceM
 	return nil
 }
 
+func (d *ObjectStore) storePVC(pvc *k8sv1.PersistentVolumeClaim) error {
+    jsonBytes, err := json.Marshal(pvc)
+    if err != nil {
+        log.Log.Println("failed to marshal pvc object ", pvc, " err: ", err)
+    }
+
+    name := pvc.GetObjectMeta().GetName()
+    namespace := pvc.GetObjectMeta().GetNamespace()
+    uid := string(pvc.GetObjectMeta().GetUID())
+    storage := pvc.Status.Capacity.Storage()
+    capacity := storage.String()
+
+    accessModes := ""
+    if len(pvc.Status.AccessModes) > 0 {
+        accessModes = string(pvc.Status.AccessModes[0])
+        for i := 1; i < len(pvc.Status.AccessModes); i++ {
+            accessModes += fmt.Sprintf(",%s", pvc.Status.AccessModes[i])
+        }
+    }
+        
+    storageClassName := ""
+    if pvc.Spec.StorageClassName != nil {
+        storageClassName = *pvc.Spec.StorageClassName
+    }
+
+    volumeMode := ""
+    if pvc.Spec.VolumeMode != nil {
+        volumeMode = string(*pvc.Spec.VolumeMode)
+    }
+
+	storeObj := &PersistentVolumeClaim{
+		Name:      name,
+		Namespace: namespace,
+		UUID:      uid,
+        Phase:     string(pvc.Status.Phase),
+        AccessModes: accessModes,
+        StorageClassName: storageClassName,
+        VolumeName: pvc.Spec.VolumeName,
+        VolumeMode: volumeMode,
+        Reason: "",
+        Capacity: capacity,
+        CreationTime: pvc.CreationTimestamp,
+        Content: jsonBytes,
+	}
+	if err := d.storeDB.StorePVC(storeObj); err != nil {
+        log.Log.Println("failed to store obj  ", storeObj, " err: ", err)
+		return err
+	}
+	return nil
+}
+
 func (d *ObjectStore) processObject(obj interface{}) {
+    
 	switch obj.(type) {
 	case *k8sv1.Pod:
 		podObj := obj.(*k8sv1.Pod)
@@ -266,15 +326,27 @@ func (d *ObjectStore) processObject(obj interface{}) {
         }
 	case *kubevirtv1.VirtualMachineInstanceMigration:
 		vmim := obj.(*kubevirtv1.VirtualMachineInstanceMigration)
-		if err := d.storeVmiMigration(vmim); err == nil {
-            log.Log.Println("stored vmi migration obj  ", vmim)
+        vmimCopy := vmim.DeepCopy()
+        
+		err := d.storeVmiMigration(*vmimCopy)
+        if err == nil {
+            log.Log.Println("stored vmi migration obj  ", vmimCopy)
+        } else {
+            log.Log.Println("failed to store vmi migration obj  ", vmimCopy)
+            
+        }
+	case *k8sv1.PersistentVolumeClaim:
+       
+		pvc := obj.(*k8sv1.PersistentVolumeClaim)
+		if err := d.storePVC(pvc); err == nil {
+            log.Log.Println("stored pvc obj  ", pvc)
         }
 	default:
 		jsonBytes, err := json.Marshal(obj)
 		if err != nil {
             log.Log.Println("failed to marshal obj", obj, " err: ", err)
 		}
-		log.Log.Println(jsonBytes)
+        log.Log.Println("failed to process unknown object ", jsonBytes)
 	}
 }
 
@@ -283,24 +355,24 @@ func (d *ObjectStore) Add(obj interface{}) {
 	switch v := obj.(type) {
 	case *k8sv1.Pod:
 		podObj := obj.(*k8sv1.Pod)
-        
         d.wg.Add(1)    
 	    d.Queue.Add(podObj)
 	case *k8sv1.Node:
 		nodeObj := obj.(*k8sv1.Node)
-        
         d.wg.Add(1)    
 	    d.Queue.Add(nodeObj)
 	case *kubevirtv1.VirtualMachineInstance:
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
-        
         d.wg.Add(1)    
 	    d.Queue.Add(vmi)
-	case *kubevirtv1.VirtualMachineInstanceMigration:
-		vmim := obj.(*kubevirtv1.VirtualMachineInstanceMigration)
-        
+	case kubevirtv1.VirtualMachineInstanceMigration:
+		vmim := obj.(kubevirtv1.VirtualMachineInstanceMigration)
         d.wg.Add(1)    
-	    d.Queue.Add(vmim)
+	    d.Queue.Add(&vmim)
+	case *k8sv1.PersistentVolumeClaim:
+		pvc := obj.(*k8sv1.PersistentVolumeClaim)
+        d.wg.Add(1)    
+	    d.Queue.Add(pvc)
 	default:
 		log.Log.Println("Cannot store unsupported obj ", v)
     }
