@@ -290,6 +290,57 @@ func (c *app) getVmiMigrations(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func (c *app) getPVCs(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get PVCs Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+    queryDetails := db.GenericQueryDetails{}
+    if pvcName, exist := params["name"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(pvcName)), &queryDetails)
+    }
+    if pvcNamespace, exist := params["namespace"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(pvcNamespace)), &queryDetails)
+    }
+    if pvcUUID, exist := params["uuid"]; exist {
+        json.Unmarshal([]byte(fmt.Sprint(pvcUUID)), &queryDetails)
+    }
+
+
+	currentPage := 1
+
+    page, err   := strconv.Atoi(fmt.Sprint(params["page"]))
+    if err == nil {
+        if page >= 1 {
+            currentPage = page
+        }
+    }
+
+    pageSize := -1
+    perPage, err := strconv.Atoi(fmt.Sprint(params["per_page"]))
+    if err == nil {
+        if perPage >= 1 {
+            pageSize = perPage
+        }  
+    }
+
+	data, err := c.storeDB.GetPVCs(currentPage, pageSize, &queryDetails)
+    if err != nil {
+        log.Log.Println("failed to get pvcs from database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(data); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
 func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get VMI Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -580,6 +631,10 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
+        if err := logsHandler.processPersistentVolumeClaimYAMLs(); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
     }
 }
 
@@ -655,6 +710,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   mux.HandleFunc("/nodes", app.getNodes)
   mux.HandleFunc("/vmis", app.getVmis)
   mux.HandleFunc("/vmims", app.getVmiMigrations)
+  mux.HandleFunc("/getPVCs", app.getPVCs)
   mux.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
   mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
   mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)

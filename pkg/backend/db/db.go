@@ -18,6 +18,39 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+func (d *DatabaseInstance) StorePVC(pvc *PersistentVolumeClaim) error {
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	stmt, err := d.db.PrepareContext(ctx, insertPVCQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	madeAt := pvc.CreationTime.Format("2006-01-02 15:04:05.999999")
+
+	_, err = stmt.ExecContext(
+        ctx,
+        pvc.Name,
+        pvc.Namespace,
+        pvc.UUID,
+        pvc.Reason,
+        pvc.Phase,
+        pvc.AccessModes,
+        pvc.StorageClassName,
+        pvc.VolumeName,
+        pvc.VolumeMode,
+        pvc.Capacity,
+        madeAt,
+        pvc.Content)
+	if err != nil {
+		return err
+	}
+
+	return nil
+} 
+
+
 func (d *DatabaseInstance) StorePod(pod *Pod) error {
 	// TimeString - given a time, return the MySQL standard string representation
 	madeAt := pod.CreationTime.Format("2006-01-02 15:04:05.999999")
@@ -105,7 +138,6 @@ func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-
     if migrationState := vmi.Status.MigrationState; migrationState != nil {
         if existngVmim, err := d.getSingleMigrationByUUID(string(migrationState.MigrationUID)); err == nil {
             log.Log.Println("no error from SingleMigrationByUUID for uuid: ", string(migrationState.MigrationUID))
@@ -175,6 +207,7 @@ var (
 	insertVmiQuery       = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 	insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
 	insertNodeQuery       = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
+	insertPVCQuery       = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 )
 
 var (
@@ -268,6 +301,9 @@ func (d *DatabaseInstance) createTables() error {
 		return err
 	}
     if err := d.createVmiMigrationsTable(); err != nil {
+		return err
+	}
+    if err := d.createPVCsTable(); err != nil {
 		return err
 	}
 	return nil
@@ -377,6 +413,31 @@ func (d *DatabaseInstance) createNodesTable() error {
 	return nil
 }
 
+func (d *DatabaseInstance) createPVCsTable() error {
+	createPVCsTable := `
+	CREATE TABLE IF NOT EXISTS pvcs (
+	  name varchar(100),
+	  namespace varchar(100),
+	  uuid varchar(100),
+      reason varchar(100),
+      phase varchar(100),
+      accessModes varchar(100),
+      storageClassName varchar(100),
+      volumeName varchar(100),
+      volumeMode varchar(100),
+      capacity varchar(100),
+      creationTime datetime,
+      content json,
+	  PRIMARY KEY (uuid)
+	);
+	`
+	err := d.execTable(createPVCsTable)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (d *DatabaseInstance) execTable(tableSql string) error {
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
@@ -642,6 +703,35 @@ func (d *DatabaseInstance) GetNodeObject(nodeUUID string) (*k8sv1.Node, error) {
  
     return &node, nil 
 
+}
+
+func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
+	queryString := "select name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime from pvcs"
+    if queryDetails != nil {
+        conditions := []string{}
+        if (*queryDetails != (GenericQueryDetails{})) {
+            queryString = fmt.Sprintf("%s where ", queryString)
+        }
+
+        if  queryDetails.Name != "" {
+            conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+        }
+        if  queryDetails.Namespace != "" {
+            conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
+        }
+        if  queryDetails.UUID != "" {
+            conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+        }
+        
+        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+    }
+    
+    log.Log.Println("queryString: ", queryString)
+    resultsMap, err := d.genericGet(queryString, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+    return resultsMap, nil 
 }
 
 func (d *DatabaseInstance) GetVMIObject(vmiUUID string) (*kubevirtv1.VirtualMachineInstance, error) {

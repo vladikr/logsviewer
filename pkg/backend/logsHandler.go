@@ -229,7 +229,7 @@ func (l *logsHandler) processEnrichmentData(pod *Pods) {
 }
 
 func (l *logsHandler) storePodData(yamlFile []byte) error {
-    var pod k8sv1.Pod
+    pod := k8sv1.Pod{}
 
     err := yaml.Unmarshal(yamlFile, &pod)
     if err != nil {
@@ -242,7 +242,7 @@ func (l *logsHandler) storePodData(yamlFile []byte) error {
 }
 
 func (l *logsHandler) storeVMIData(yamlFile []byte) error {
-    var vmi kubevirtv1.VirtualMachineInstance
+    vmi := kubevirtv1.VirtualMachineInstance{}
 
     err := yaml.Unmarshal(yamlFile, &vmi)
     if err != nil {
@@ -255,7 +255,7 @@ func (l *logsHandler) storeVMIData(yamlFile []byte) error {
 }
 
 func (l *logsHandler) storeVMIMData(yamlFile []byte) error {
-    var vmim kubevirtv1.VirtualMachineInstanceMigration
+    vmim := kubevirtv1.VirtualMachineInstanceMigration{}
 
     err := yaml.Unmarshal(yamlFile, &vmim)
     if err != nil {
@@ -263,12 +263,12 @@ func (l *logsHandler) storeVMIMData(yamlFile []byte) error {
       return err
     }
 
-    l.objectStore.Add(&vmim)
+    l.objectStore.Add(vmim)
     return nil
 }
 
 func (l *logsHandler) storeVMIMListData(yamlFile []byte) error {
-    var vmimList kubevirtv1.VirtualMachineInstanceMigrationList
+    vmimList := kubevirtv1.VirtualMachineInstanceMigrationList{}
 
     err := yaml.Unmarshal(yamlFile, &vmimList)
     if err != nil {
@@ -277,13 +277,42 @@ func (l *logsHandler) storeVMIMListData(yamlFile []byte) error {
     }
 
     for _, vmim := range vmimList.Items {
-        l.objectStore.Add(&vmim)
+        l.objectStore.Add(vmim)
     }
     return nil
 }
 
+func (l *logsHandler) storePVCData(yamlFile []byte) error {
+    pvc := k8sv1.PersistentVolumeClaim{}
+
+    err := yaml.Unmarshal(yamlFile, &pvc)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal pvc yaml  - ", err)
+      return err
+    }
+
+    l.objectStore.Add(&pvc)
+    return nil
+}
+
+func (l *logsHandler) storePVCListData(yamlFile []byte) error {
+    pvcList := k8sv1.PersistentVolumeClaimList{}
+
+    err := yaml.Unmarshal(yamlFile, &pvcList)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal pvc yaml  - ", err)
+      return err
+    }
+
+    for _, pvc := range pvcList.Items {
+        l.objectStore.Add(&pvc)
+    }
+    return nil
+}
+
+
 func (l *logsHandler) storeNodeData(yamlFile []byte) error {
-    var node k8sv1.Node
+    node := k8sv1.Node{}
 
     err := yaml.Unmarshal(yamlFile, &node)
     if err != nil {
@@ -446,5 +475,45 @@ func (l *logsHandler) processNodeYAMLs() error {
     }
 
     log.Log.Println("finished processing node YAMLs")
+    return nil
+} 
+
+func (l *logsHandler) processPersistentVolumeClaimYAMLs() error {
+    // different versions of the must-gather collect the PVC yamls differently
+
+    l.handlerLock.Lock()
+    defer l.handlerLock.Unlock()
+
+
+    //TODO: make path configurable
+    layouts, err := filepath.Glob("/space/namespaces/*/core/persistentvolumeclaims/*.yaml")
+    if err != nil {
+        return(err)
+    }
+
+    for _, filename := range layouts {
+        yamlFile, err := ioutil.ReadFile(filename)
+        if err != nil {
+          return err
+        }
+        l.storePVCData(yamlFile)
+    }
+
+    if len(layouts) == 0 {
+        
+        combinedYamls, err := filepath.Glob("/space/namespaces/*/core/persistentvolumeclaims.yaml")
+        if err != nil {
+            return(err)
+        }
+        for _, filename := range combinedYamls {
+            yamlFile, err := ioutil.ReadFile(filename)
+            if err != nil {
+              return err
+            }
+            l.storePVCListData(yamlFile)
+        }
+    }
+
+    log.Log.Println("finished processing PVC YAMLs")
     return nil
 } 
