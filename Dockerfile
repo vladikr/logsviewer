@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.17 AS builder
+FROM golang:1.19 AS builder
 
 ### Install NodeJS and yarn
 ENV NODE_VERSION="v14.16.0"
