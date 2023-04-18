@@ -10,18 +10,19 @@ import (
 
 type (
 	Pod struct {
-		Key       string `json:"keyid"`
-		Kind      string `json:"kind"`
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		UUID      string `json:"uuid"`
-        Phase     string `json:"phase"`
-        ActiveContainers int `json:"activeContainers"`
-        TotalContainers  int `json:"totalContainers"`
-        NodeName         string `json:"nodeName"`
-        CreationTime     metav1.Time `json:"creationTime"`
-		Content json.RawMessage `json:"content"`
-        CreatedBy        string `json:"createdBy"`
+		Key               string `json:"keyid"`
+		Kind              string `json:"kind"`
+		Name              string `json:"name"`
+		Namespace         string `json:"namespace"`
+		UUID              string `json:"uuid"`
+        Phase             string `json:"phase"`
+        ActiveContainers  int `json:"activeContainers"`
+        TotalContainers   int `json:"totalContainers"`
+        NodeName          string `json:"nodeName"`
+        CreationTime      metav1.Time `json:"creationTime"`
+        PVCs              string `json:"pvcs"`
+		Content           json.RawMessage `json:"content"`
+        CreatedBy         string `json:"createdBy"`
 	}
 
 	VirtualMachineInstance struct {

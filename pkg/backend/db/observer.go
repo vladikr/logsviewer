@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+    "strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -112,6 +113,18 @@ func (d *ObjectStore) countPodContainers(pod *k8sv1.Pod) (int, int) {
     return totalContainers, activeContainers
 }
 
+func (d *ObjectStore) formatPodPVCs(pod *k8sv1.Pod) string {
+    pvcs := []string{}
+
+    for _, volume := range pod.Spec.Volumes {
+        if volume.PersistentVolumeClaim != nil {
+            pvcs = append(pvcs, volume.PersistentVolumeClaim.ClaimName)
+        }
+    }
+    pvcsStr := strings.Join(pvcs, ",")
+    return pvcsStr
+}
+
 func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
     jsonBytes, err := json.Marshal(pod)
     if err != nil {
@@ -124,6 +137,7 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
     namespace := pod.GetObjectMeta().GetNamespace()
     uid := string(pod.GetObjectMeta().GetUID())
     kind := pod.GetObjectKind().GroupVersionKind().Kind
+    pvcsList := d.formatPodPVCs(pod)
 	storeObj := &Pod{
 		Key:       fmt.Sprintf("%s/%s", name, namespace),
 		Kind:      kind,
@@ -135,6 +149,7 @@ func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
         TotalContainers: totalContainers,
         NodeName: string(pod.Spec.NodeName),
         CreationTime: pod.CreationTimestamp,
+        PVCs: pvcsList,
         Content: jsonBytes,
         CreatedBy: createdByUID,
 	}
