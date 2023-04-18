@@ -75,6 +75,7 @@ func (d *DatabaseInstance) StorePod(pod *Pod) error {
         pod.TotalContainers,
         pod.NodeName,
         madeAt,
+        pod.PVCs,
         pod.Content,
         pod.CreatedBy)
 	if err != nil {
@@ -203,7 +204,7 @@ func (d *DatabaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigrati
 } 
 
 var (
-	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
 	insertVmiQuery       = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 	insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
 	insertNodeQuery       = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
@@ -323,6 +324,7 @@ func (d *DatabaseInstance) createPodsTable() error {
       totalContainers TINYINT,
       nodeName varchar(100),
       creationTime datetime,
+      pvcs varchar(200),
       content json,
 	  createdBy varchar(100),
 	  PRIMARY KEY (uuid)
@@ -714,7 +716,13 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
         }
 
         if  queryDetails.Name != "" {
-            conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+            // handle list of claim names
+            claimsList := strings.Split(queryDetails.Name, ",")
+            if len(claimsList) >= 1 {
+                conditions = append(conditions, fmt.Sprintf("name in ('%s')", queryDetails.Name))
+            } else {
+                conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+            }
         }
         if  queryDetails.Namespace != "" {
             conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
@@ -732,6 +740,35 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
 		return nil, err
 	}
     return resultsMap, nil 
+}
+
+func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, error) {
+    podPvcs := ""
+    pvcsList := map[string]interface{} 
+	queryString := fmt.Sprintf("select pvcs from pods where uuid = '%s'", podUUID)
+
+    // get pod pvcs
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&podPvcs)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("GetPodPVCs can't find anything with this uuid: ", podUUID)
+            return nil, err
+        } else {
+            log.Log.Println("GetPodPVCs ERROR: ", err, " for uuid: ", podUUID)
+            return nil, err
+        }
+    }
+    if podPvcs != "" { 
+        queryDetails := GenericQueryDetails{
+                            Name: podPvcs,
+                        }
+        pvcsList, err  := d.GetPVCs(-1, -1, &queryDetails)
+        if err != nil {
+            return nil, err
+        }
+    }
+    return pvcsList, nil 
 }
 
 func (d *DatabaseInstance) GetVMIObject(vmiUUID string) (*kubevirtv1.VirtualMachineInstance, error) {
