@@ -10,6 +10,7 @@ import { Migrations } from '@app/Workloads/Migrations/Migrations';
 import { Pods } from '@app/Workloads/Pods/Pods';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
+import { PersistentVolumeClaims } from '@app/Storage/PVC/PersistentVolumeClaims';
 
 let routeFocusTimer: number;
 export interface IAppRoute {
@@ -87,6 +88,18 @@ const routes: AppRouteConfig[] = [
         label: 'Pods',
         path: '/workloads/pods',
         title: 'LogsViewer | Pods View',
+      },
+    ],
+  },
+  {
+    label: 'Storage',
+    routes: [
+      {
+        component: PersistentVolumeClaims,
+        exact: true,
+        label: 'PersistentVolumeClaims',
+        path: '/storage/pvcs',
+        title: 'PatternFly Seed | PersistentVolumeClaims View',
       },
     ],
   },
