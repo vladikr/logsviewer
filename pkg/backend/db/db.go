@@ -691,7 +691,6 @@ func (d *DatabaseInstance) GetNodeObject(nodeUUID string) (*k8sv1.Node, error) {
             return nil, err
         }
     }
-
     
     // Unmashal json
     var node k8sv1.Node
@@ -703,6 +702,37 @@ func (d *DatabaseInstance) GetNodeObject(nodeUUID string) (*k8sv1.Node, error) {
     }
  
     return &node, nil 
+
+}
+
+// GetPVCObject returns a PersistentVolumeClaim yaml object
+func (d *DatabaseInstance) GetPVCObject(pvcUUID string) (*k8sv1.PersistentVolumeClaim, error) {
+    var content json.RawMessage
+ 
+	queryString := fmt.Sprintf("select content from pvcs where uuid = '%s'", pvcUUID)
+
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&content)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("can't find pvcs with this uuid: ", pvcUUID)
+            return nil, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for uuid: ", pvcUUID)
+            return nil, err
+        }
+    }
+    
+    // Unmashal json
+    var pvc k8sv1.PersistentVolumeClaim
+
+    err = json.Unmarshal(content, &pvc)
+    if err != nil {
+      log.Log.Fatalln("failed to unmarshal json to pvc object - ", err)
+      return nil, err
+    }
+ 
+    return &pvc, nil 
 
 }
 
@@ -748,37 +778,6 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
 	}
     return resultsMap, nil 
 }
-
-/*
-func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, error) {
-    podPvcs := ""
-    pvcsList := map[string]interface{} 
-	queryString := fmt.Sprintf("select pvcs from pods where uuid = '%s'", podUUID)
-
-    // get pod pvcs
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&podPvcs)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("GetPodPVCs can't find anything with this uuid: ", podUUID)
-            return nil, err
-        } else {
-            log.Log.Println("GetPodPVCs ERROR: ", err, " for uuid: ", podUUID)
-            return nil, err
-        }
-    }
-    if podPvcs != "" { 
-        queryDetails := GenericQueryDetails{
-                            Name: podPvcs,
-                        }
-        pvcsList, err  := d.GetPVCs(-1, -1, &queryDetails)
-        if err != nil {
-            return nil, err
-        }
-    }
-    return pvcsList, nil 
-}
-*/
 
 func (d *DatabaseInstance) GetVMIPVCs(vmiUUID string) (map[string]interface{}, error) {
 	podQueryString := fmt.Sprintf("select pvcs from pods where createdBy='%s'", vmiUUID)

@@ -519,6 +519,13 @@ func (c *app) getObjYaml(w http.ResponseWriter, r *http.Request) {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
         }
+    case "pvc":
+        retObject, err = c.storeDB.GetPVCObject(fmt.Sprintf("%s", UUID))
+        if err != nil {
+            log.Log.Println("failed to fetch pvc params", err)
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
     }
 
 
