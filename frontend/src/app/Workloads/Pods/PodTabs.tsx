@@ -1,7 +1,7 @@
 import * as React from 'react';
 import "@patternfly/react-core/dist/styles/base.css";
 import axios from 'axios';
-import { Migrations } from '@app/Workloads/Migrations/Migrations';
+import { PVCsTableMinimal } from '@app/Storage/PVC/PersistentVolumeClaimsMin';
 import { YAMLEditor } from "@app/Common/Editor"
 import {
   Tabs, Tab, TabTitleText,
@@ -79,8 +79,11 @@ const PodTabs: React.FunctionComponent<PodTabsProps> = ({name, namespace, uuid}:
               </Bullseye>
     )
 
+    const renderStoragePVCs = (name?: string, namespace?: string, uuid?: string) => {
+        return (
+            <PVCsTableMinimal name={name} namespace={namespace} uuid={uuid} object="pod"/>
+    )}
 
-        //usePageInsets
 return (
     <div>
         <Tabs
@@ -130,7 +133,11 @@ return (
           hidden={2 !== activeTabKey}
         >
           <TabContentBody>
-              <div>TBD</div>
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+              <FlexItem>
+                { 2 !== activeTabKey ? (loadingElem()) : (renderStoragePVCs(name, namespace, uuid))}
+              </FlexItem>
+            </Flex>
           </TabContentBody>
         </TabContent>
         <TabContent
