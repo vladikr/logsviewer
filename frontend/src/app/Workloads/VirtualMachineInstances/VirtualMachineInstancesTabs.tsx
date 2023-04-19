@@ -2,6 +2,7 @@ import * as React from 'react';
 import "@patternfly/react-core/dist/styles/base.css";
 import axios from 'axios';
 import { Migrations } from '@app/Workloads/Migrations/Migrations';
+import { PVCsTableMinimal } from '@app/Storage/PVC/PersistentVolumeClaimsMin';
 import { YAMLEditor } from "@app/Common/Editor"
 import {
   Tabs, Tab, TabTitleText,
@@ -79,6 +80,10 @@ const VirtualMachineInstancesTabs: React.FunctionComponent<VMITabsProps> = ({nam
                 </EmptyState>
               </Bullseye>
     )
+    const renderStoragePVCs = (name?: string, namespace?: string, uuid?: string) => {
+        return (
+            <PVCsTableMinimal name={name} namespace={namespace} uuid={uuid} object="vmi"/>
+    )}
 
     const renderMigrations = (name?: string, namespace?: string) => {
         return (
@@ -147,7 +152,11 @@ return (
           hidden={3 !== activeTabKey}
         >
           <TabContentBody>
-              <div>TBD</div>
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+              <FlexItem>
+                { 3 !== activeTabKey ? (loadingElem()) : (renderStoragePVCs(name, namespace, uuid))}
+              </FlexItem>
+            </Flex>
           </TabContentBody>
         </TabContent>
         <TabContent
