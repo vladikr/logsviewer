@@ -319,6 +319,36 @@ func (c *app) getPodPVCs(w http.ResponseWriter, r *http.Request) {
     }    
 }
 
+func (c *app) getVMIPVCs(w http.ResponseWriter, r *http.Request) {
+    log.Log.Println("Get VMI PVCs Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+            params[k] = v[0]
+    }
+
+    vmiUUID, exist := params["uuid"]
+    if !exist {
+        log.Log.Println("can't find uuid in query params")
+		http.Error(w, "can't find uuid in query params", http.StatusInternalServerError)
+        return
+    }
+
+	data, err := c.storeDB.GetVMIPVCs(fmt.Sprintf("%s", vmiUUID))
+    if err != nil {
+        log.Log.Println("failed to get pvcs from database", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+	}
+    w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)  
+    enc := json.NewEncoder(w)
+    enc.SetIndent("", "  ")
+    if err1 := enc.Encode(data); err1 != nil {
+        fmt.Println(err1.Error())
+    }    
+}
+
+
 func (c *app) getPVCs(w http.ResponseWriter, r *http.Request) {
     log.Log.Println("Get PVCs Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -741,6 +771,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
   mux.HandleFunc("/vmims", app.getVmiMigrations)
   mux.HandleFunc("/getPVCs", app.getPVCs)
   mux.HandleFunc("/getPodPVCs", app.getPodPVCs)
+  mux.HandleFunc("/getVMIPVCs", app.getVMIPVCs)
   mux.HandleFunc("/getVMIQueryParams", app.getVMIQueryParams)
   mux.HandleFunc("/getMigrationQueryParams", app.getMigrationQueryParams)
   mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)

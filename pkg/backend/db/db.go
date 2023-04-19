@@ -587,7 +587,6 @@ func (d *DatabaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryR
     return results, nil 
 }
 
-
 func (d *DatabaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
     results := QueryResults{VMIUUID: vmiUUID}
  
@@ -718,8 +717,16 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
         if  queryDetails.Name != "" {
             // handle list of claim names
             claimsList := strings.Split(queryDetails.Name, ",")
-            if len(claimsList) >= 1 {
-                conditions = append(conditions, fmt.Sprintf("name in ('%s')", queryDetails.Name))
+            if len(claimsList) > 1 {
+                queryStr := "name in ("
+                for idx, claim := range claimsList {
+                    queryStr += fmt.Sprintf("'%s'", claim)
+                    if idx != len(claimsList) - 1 {
+                        queryStr += ", "
+                    }
+                }
+                queryStr += ")"
+                conditions = append(conditions, queryStr)
             } else {
                 conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
             }
@@ -742,6 +749,7 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
     return resultsMap, nil 
 }
 
+/*
 func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, error) {
     podPvcs := ""
     pvcsList := map[string]interface{} 
@@ -764,6 +772,59 @@ func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, e
                             Name: podPvcs,
                         }
         pvcsList, err  := d.GetPVCs(-1, -1, &queryDetails)
+        if err != nil {
+            return nil, err
+        }
+    }
+    return pvcsList, nil 
+}
+*/
+
+func (d *DatabaseInstance) GetVMIPVCs(vmiUUID string) (map[string]interface{}, error) {
+	podQueryString := fmt.Sprintf("select pvcs from pods where createdBy='%s'", vmiUUID)
+    res, err := d.genericGetPVCs(podQueryString)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("GeVMIPVCs can't find anything with this uuid: ", vmiUUID)
+            return nil, err
+        } else {
+            log.Log.Println("GetVMIPVCs ERROR: ", err, " for uuid: ", vmiUUID)
+            return nil, err
+        }
+    }
+    return res, nil
+}
+
+func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, error) {
+	queryString := fmt.Sprintf("select pvcs from pods where uuid = '%s'", podUUID)
+    res, err := d.genericGetPVCs(queryString)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("GetPodPVCs can't find anything with this uuid: ", podUUID)
+            return nil, err
+        } else {
+            log.Log.Println("GetPodPVCs ERROR: ", err, " for uuid: ", podUUID)
+            return nil, err
+        }
+    }
+    return res, nil
+}
+
+func (d *DatabaseInstance) genericGetPVCs(queryString string) (map[string]interface{}, error) {
+    podPvcs := ""
+    pvcsList := make(map[string]interface{})
+
+    // get pod pvcs
+	rows := d.db.QueryRow(queryString) 
+    err := rows.Scan(&podPvcs)
+    if err != nil {
+        return nil, err
+    }
+    if podPvcs != "" { 
+        queryDetails := GenericQueryDetails{
+                            Name: podPvcs,
+                        }
+        pvcsList, err = d.GetPVCs(-1, -1, &queryDetails)
         if err != nil {
             return nil, err
         }
