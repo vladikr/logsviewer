@@ -73,39 +73,39 @@ type (
 	}
 
 	PersistentVolumeClaim struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
-		UUID      string `json:"uuid"`
-        AccessModes string `json:"accessModes"`
+		Name            string `json:"name"`
+		Namespace       string `json:"namespace"`
+		UUID            string `json:"uuid"`
+        AccessModes     string `json:"accessModes"`
         StorageClassName string `json:"storageClassName"`
-        VolumeName         string `json:"volumeName"`
-        VolumeMode         string `json:"volumeMode"`
-        Reason     string `json:"reason"`
-        Phase     string `json:"phase"`
-        Capacity  string `json:"capacity"`
-        CreationTime     metav1.Time `json:"creationTime"`
-		Content json.RawMessage `json:"content"`
+        VolumeName      string `json:"volumeName"`
+        VolumeMode      string `json:"volumeMode"`
+        Reason          string `json:"reason"`
+        Phase           string `json:"phase"`
+        Capacity        string `json:"capacity"`
+        CreationTime    metav1.Time `json:"creationTime"`
+		Content         json.RawMessage `json:"content"`
 	}
 
 	QueryResults struct {
-        Namespace   string
-        SourcePodUUID     string
-        TargetPodUUID     string
+        Namespace       string
+        SourcePodUUID   string
+        TargetPodUUID   string
         VMIUUID         string
-        MigrationUUID         string
-        SourcePod string
-        TargetPod string
-        StartTimestamp time.Time
-        EndTimestamp time.Time
-        SourceHandler string
-        TargetHandler string
+        MigrationUUID   string
+        SourcePod       string
+        TargetPod       string
+        StartTimestamp  time.Time
+        EndTimestamp    time.Time
+        SourceHandler   string
+        TargetHandler   string
+        PVCs            []string
 	}
 
     GenericQueryDetails struct {
-        UUID string
-        Name string
-        Namespace string
-        Yaml bool
+        UUID            string
+        Name            string
+        Namespace       string
+        Yaml            bool
     }
-
 )

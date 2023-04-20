@@ -338,6 +338,7 @@ func (l *logsHandler) processPodYAMLs() error {
     }
 
     for _, filename := range layouts {
+
           // read pod yaml
         yamlFile, err := ioutil.ReadFile(filename)
         if err != nil {

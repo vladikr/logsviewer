@@ -584,6 +584,22 @@ func (d *DatabaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryR
             return results, err
         }
     } 
+
+    // get a list of PVCs
+    pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
+    if err != nil {
+        return results, err
+    }
+    data, ok := pvcsListRes["data"].([]map[string]interface{})
+    if !ok {
+        log.Log.Println("failed to covert pvc data")
+        return results, nil 
+    }
+
+    for _, pvc := range data {
+        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+    }
+
     return results, nil 
 }
 
@@ -620,6 +636,22 @@ func (d *DatabaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (Q
         }
     } 
 
+    // get a list of PVCs
+    pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
+    if err != nil {
+        return results, err
+    }
+
+    data, ok := pvcsListRes["data"].([]map[string]interface{})
+    if !ok {
+        log.Log.Println("failed to covert pvc data")
+        return results, nil 
+    }
+
+    for _, pvc := range data {
+        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+    }
+
     return results, nil 
 }
 
@@ -642,6 +674,20 @@ func (d *DatabaseInstance) GetPodQueryParams(podUUID string) (QueryResults, erro
         }
     } 
     
+    // get a list of PVCs
+    pvcsListRes, err := d.GetPodPVCs(podUUID)
+    if err != nil {
+        return results, err
+    }
+
+    data, ok := pvcsListRes["data"].([]map[string]interface{})
+    if !ok {
+        log.Log.Println("failed to covert pvc data")
+        return results, nil 
+    }
+    for _, pvc := range data {
+        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+    }
 
     return results, nil 
 }
@@ -827,6 +873,16 @@ func (d *DatabaseInstance) genericGetPVCs(queryString string) (map[string]interf
         if err != nil {
             return nil, err
         }
+    } else {
+        data     := []map[string]interface{}{}
+        meta  := map[string]int { 
+            "page":        		-1,
+            "per_page":    		-1,
+            "totalRowCount":    0,
+            "totalPages": 		1,
+        }
+        pvcsList["data"] = data
+        pvcsList["meta"] = meta
     }
     return pvcsList, nil 
 }
