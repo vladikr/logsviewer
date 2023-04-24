@@ -66,6 +66,7 @@ objects:
       network.host: 0.0.0.0
       xpack.security.enabled: false
       path.repo: /var/backups
+      indices.memory.index_buffer_size: 20%
 - apiVersion: v1
   kind: ConfigMap
   metadata:
@@ -89,8 +90,8 @@ objects:
     logstash.conf: |
       input {
         file {
-          mode => "read"   
-          path => ["/space/namespaces/**/*.log"]            
+          mode => "read"
+          path => ["/space/namespaces/**/virt-*/**/*.log", "/space/namespaces/**/cdi-*/**/*.log"]            
           codec => plain
           type => "CNVLogs"
           file_completed_action => log_and_delete
@@ -103,6 +104,7 @@ objects:
             "message", "^[^{]*{", "{"
           ]
         }
+        mutate { gsub => [ "message", "(\W)-(\W)", '\1""\2' ] }
         ruby {
           code => '
             path = event.get("[log][file][path]")
@@ -126,15 +128,18 @@ objects:
         }
       }
       filter {
+        date {
+          match => [ "ts", "ISO8601" ]
+          target => "@timestamp"
+        }
+      }
+      filter {
         translate {
           field => "key"
           destination => "[enrichment_data]"
           dictionary_path => "/space/result.json"
         }
   
-        json {
-          source => "[enrichment_data]"
-        }
       }
       output {                                               
         elasticsearch {            
@@ -160,10 +165,9 @@ objects:
             command: ["/usr/bin/sh", "-c", "/usr/bin/sleep 30"]
       resources:
         # need more cpu upon initialization, therefore burstable class
-        limits:
-          cpu: 1000m
         requests:
-          cpu: 100m
+          cpu: 8
+          memory: 32Gi
       ports:
       - containerPort: 9200
         name: db
@@ -182,6 +186,8 @@ objects:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: "ES_JAVA_OPTS"
+        value: -Xms31G -Xmx31G -XX:ParallelGCThreads=48 -XX:NewRatio=2
     - name: mysql
       image: mysql:5.7
       imagePullPolicy: IfNotPresent
