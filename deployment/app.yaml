@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: logsviewer
+  # Replace with the namespace where Argo is running
+  namespace: fabiand
+spec:
+  destination:
+    # Replace this with the namespace of where you want the
+    # custom instanceTypes to appear
+    namespace: fabiand
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: deployment
+    repoURL: https://github.com/fabiand/logsviewer
+    targetRevision: argo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: false
+    syncOptions:
+    - CreateNamespace=true
