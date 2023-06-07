@@ -47,9 +47,13 @@ func Run() {
 	case "help":
 		fmt.Println("Control an instance of the logsViewer")
 		fmt.Println("Syntax: lvctl [command] [options]")
+		fmt.Println()
 		setupCommand.Usage()
+		fmt.Println()
 		deleteCommand.Usage()
+		fmt.Println()
 		importCommand.Usage()
+		fmt.Println()
 		setupImportCommand.Usage()
 	case "setup":
 		mustSucceed(setupCommand.Parse(os.Args[2:]))
@@ -93,7 +97,7 @@ func (lg *LogsViewer) setupFlags() (setupCommand, deleteCommand, importCommand, 
 
 func (lg *LogsViewer) commonFlags(flagSet *flag.FlagSet) {
 	flagSet.StringVar(&lg.instanceID, "id", "", "The instance id")
-	flagSet.StringVar(&lg.namespace, "namespace", "", "The namespace (default is the current namespace)")
+	flagSet.StringVar(&lg.namespace, "namespace", "", "The namespace (defaults to the current namespace)")
 
 	if home := homedir.HomeDir(); home != "" {
 		flagSet.StringVar(&lg.kubeconfig, "kubeconfig", filepath.Join(home, ".kube", "config"), "absolute path to the kubeconfig file")
