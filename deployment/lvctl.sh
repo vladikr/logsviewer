@@ -15,7 +15,7 @@ Help()
    echo "options:"
    echo "i|suffix            Instance ID"
    echo "s|storage_class     Storage Class to use"
-   echo "t|image_tag         Image tag to use"
+   echo "t|logsviewer_image  LogsViewer image to use"
    echo
 }
 
@@ -65,8 +65,8 @@ function create_instance() {
     if [[ $storage_class != "" ]]; then
         add_st_class="-p STORAGE_CLASS=${storage_class}"
      fi
-    if [[ $image_tag != "" ]]; then
-        add_tag="-p IMAGE_TAG=${image_tag}"
+    if [[ $logsviewer_image != "" ]]; then
+        add_tag="-p LOGSVIEWER_IMAGE=${logsviewer_image}"
      fi
     oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${ID} ${add_st_class} ${add_tag}| oc create -f -
     sleep 5
@@ -79,8 +79,8 @@ function delete_instance() {
     if [[ $storage_class != "" ]]; then
          add_st_class="-p STORAGE_CLASS=${storage_class}"
     fi
-    if [[ $image_tag != "" ]]; then
-        add_tag="-p IMAGE_TAG=${image_tag}"
+    if [[ $logsviewer_image != "" ]]; then
+        add_tag="-p LOGSVIEWER_IMAGE=${logsviewer_image}"
      fi
     oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${route} ${add_st_class} ${add_tag}| oc delete -f -
 }
@@ -89,20 +89,20 @@ function delete_instance() {
 create=false
 delete=false
 storage_class=
-image_tag=
+logsviewer_image=
 suffix=
 
-TEMP=$(getopt -o cdi:s:t:h --long create,delete,suffix:,storage_class:,image_tag:,help -n 'lvctl' -- "$@")
+TEMP=$(getopt -o cdi:s:t:h --long create,delete,suffix:,storage_class:,logsviewer_image:,help -n 'lvctl' -- "$@")
 eval set -- "$TEMP"
 
 while true; do
   case "$1" in
-        -c | --create )    create=true; shift ;;
-        -d | --delete )    delete=true; shift ;;
-        -i | --suffix )    suffix="$2"; shift 2 ;;
-        -s | --storage_class )  storage_class="$2"; shift 2 ;;
-        -t | --image_tag )  image_tag="$2"; shift 2 ;;
-        -h | --help)       Help shift; break;;
+        -c | --create )           create=true; shift ;;
+        -d | --delete )           delete=true; shift ;;
+        -i | --suffix )           suffix="$2"; shift 2 ;;
+        -s | --storage_class )    storage_class="$2"; shift 2 ;;
+        -t | --logsviewer_image ) logsviewer_image="$2"; shift 2 ;;
+        -h | --help)              Help shift; break;;
      \?) # Invalid option
          Help
          exit;;
