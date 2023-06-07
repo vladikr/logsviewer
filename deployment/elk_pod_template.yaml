@@ -249,6 +249,18 @@ objects:
       command: ["/backend"]
       ports:
       - containerPort: 8080
+      readinessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 5
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 20
+        periodSeconds: 5
       volumeMounts:
         - name: logstore-${SUFFIX}
           mountPath: /space
