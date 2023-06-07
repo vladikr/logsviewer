@@ -244,7 +244,7 @@ objects:
         - name: logstore-${SUFFIX}
           mountPath: /space
     - name: logsviewer
-      image: quay.io/vladikr/logsviewer:${IMAGE_TAG}
+      image: ${LOGSVIEWER_IMAGE}
       imagePullPolicy: Always
       command: ["/backend"]
       ports:
@@ -304,6 +304,6 @@ parameters:
 - description: Storage class to use
   value: ocs-storagecluster-ceph-rbd
   name: STORAGE_CLASS
-- description: Image tag
-  value: devel
-  name: IMAGE_TAG
+- description: LogsViewer image
+  value: quay.io/vladikr/logsviewer:devel
+  name: LOGSVIEWER_IMAGE
