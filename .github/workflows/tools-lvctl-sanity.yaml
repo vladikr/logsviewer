@@ -1,0 +1,44 @@
+name: Sanity Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Sanity Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/lvctl
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            lvctl:
+              - 'tools/lvctl/**'     
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.20'
+
+      - name: Do sanity checks
+        run: make sanity
+
+      - name: Run unit tests
+        run: make test
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.51.2
+          skip-pkg-cache: true
+          args: --timeout=5m --out-${NO_FUTURE}format line-number
+          working-directory: tools/lvctl
