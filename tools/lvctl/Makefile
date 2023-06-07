@@ -1,5 +1,9 @@
 GOLANDCI_LINT_VERSION ?= v1.53.1
 
+build:
+	mkdir -p bin
+	go build -o bin/lvctl ./cmd
+
 sanity: goimport
 	go version
 	go fmt ./...
