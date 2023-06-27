@@ -68,7 +68,7 @@ function create_instance() {
     if [[ $logsviewer_image != "" ]]; then
         add_tag="-p LOGSVIEWER_IMAGE=${logsviewer_image}"
      fi
-    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${ID} ${add_st_class} ${add_tag}| oc create -f -
+    oc process -f $template_path -p SUFFIX=${ID} ${add_st_class} ${add_tag}| oc create -f -
     sleep 5
     wait_for_pod "logsviewer-${ID}" 300
     oc get routes
@@ -82,7 +82,7 @@ function delete_instance() {
     if [[ $logsviewer_image != "" ]]; then
         add_tag="-p LOGSVIEWER_IMAGE=${logsviewer_image}"
      fi
-    oc process -f deployment/elk_pod_template.yaml -p SUFFIX=${route} ${add_st_class} ${add_tag}| oc delete -f -
+    oc process -f $template_path -p SUFFIX=${route} ${add_st_class} ${add_tag}| oc delete -f -
 }
 
 # Set variables
@@ -91,6 +91,11 @@ delete=false
 storage_class=
 logsviewer_image=
 suffix=
+
+# template path
+full_path=$(realpath $0)
+dir_path=$(dirname $full_path)
+template_path=$dir_path/elk_pod_template.yaml
 
 TEMP=$(getopt -o cdi:s:t:h --long create,delete,suffix:,storage_class:,logsviewer_image:,help -n 'lvctl' -- "$@")
 eval set -- "$TEMP"
