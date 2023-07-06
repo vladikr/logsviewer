@@ -2,8 +2,8 @@ package lvctl
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
-	"os"
 
 	templatev1 "github.com/openshift/api/template/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,11 +13,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+//go:embed resources/elk_pod_template.yaml
+var tpl string
+
 func (lg *LogsViewer) setup() {
 	lg.generateInstanceID()
 	klog.Infof("setting up LogsViewer %s", lg.instanceID)
 
-	template, err := loadTemplate("../../deployment/elk_pod_template.yaml")
+	template, err := loadTemplate()
 	if err != nil {
 		klog.Exit("failed to load template: ", err)
 	}
@@ -188,14 +191,9 @@ func logsViewerContainerReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func loadTemplate(templateFile string) (*templatev1.Template, error) {
-	tpl, err := os.ReadFile(templateFile)
-	if err != nil {
-		return nil, err
-	}
-
+func loadTemplate() (*templatev1.Template, error) {
 	template := &templatev1.Template{}
-	err = yaml.Unmarshal(tpl, template)
+	err := yaml.Unmarshal([]byte(tpl), template)
 	if err != nil {
 		return nil, err
 	}
