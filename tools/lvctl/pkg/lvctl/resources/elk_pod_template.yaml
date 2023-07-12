@@ -247,6 +247,9 @@ objects:
       image: ${LOGSVIEWER_IMAGE}
       imagePullPolicy: Always
       command: ["/backend"]
+      env:
+      - name: "POD_NAME"
+        value: logsviewer-${SUFFIX}
       ports:
       - containerPort: 8080
       readinessProbe:
