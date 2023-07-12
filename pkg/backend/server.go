@@ -11,11 +11,13 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"sigs.k8s.io/yaml"
+
 	"logsviewer/pkg/backend/db"
 	"logsviewer/pkg/backend/log"
-
-	"github.com/gorilla/websocket"
-	"sigs.k8s.io/yaml"
+	"logsviewer/pkg/backend/monitoring/metrics"
 )
 
 const (
@@ -661,6 +663,7 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Successfully Uploaded File: ", handler.Filename)
 	log.Log.Println("Successfully Uploaded File: ", handler.Filename)
+	metrics.NewMustGatherUploaded()
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":     true,
@@ -759,6 +762,10 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 		return nil, err
 	}
 
+	// Register metrics in Prometheus
+	metrics.SetupMetrics()
+	metrics.InstanceCreated()
+
 	mux := http.NewServeMux()
 	web := http.FileServer(http.Dir(*publicDir))
 
@@ -778,9 +785,11 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)
 	mux.HandleFunc("/getPodYaml", app.getPodYaml)
 	mux.HandleFunc("/getObjYaml", app.getObjYaml)
+
+	mux.Handle("/metrics", promhttp.Handler())
+
 	log.Log.Println("Routes set")
 	return mux, nil
-
 }
 
 func Spawn(publicDir string) error {
