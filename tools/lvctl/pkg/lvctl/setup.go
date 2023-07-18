@@ -16,6 +16,12 @@ import (
 //go:embed resources/elk_pod_template.yaml
 var tpl string
 
+var deletionConditionOptions = []string{
+	"never",
+	"creation",
+	"last-must-gather-upload",
+}
+
 func (lg *LogsViewer) setup() {
 	lg.generateInstanceID()
 	klog.Infof("setting up LogsViewer %s", lg.instanceID)
@@ -80,6 +86,15 @@ func (lg *LogsViewer) createTemplateInstance(template *templatev1.Template) (*te
 			Value: lg.image,
 		},
 	}
+
+	if !contains(deletionConditionOptions, lg.deletionCondition) {
+		return nil, fmt.Errorf("deletion-condition must be one of %v", deletionConditionOptions)
+	}
+	if template.Labels == nil {
+		template.Labels = make(map[string]string)
+	}
+	template.Labels["logsviewer.openshift.io/deletion-condition"] = lg.deletionCondition
+	template.Labels["logsviewer.openshift.io/deletion-delay"] = lg.deletionDelay.String()
 
 	template, err := lg.templateClient.TemplateV1().Templates(lg.namespace).Create(context.TODO(), template, metav1.CreateOptions{})
 	if err != nil {
@@ -199,4 +214,13 @@ func loadTemplate() (*templatev1.Template, error) {
 	}
 
 	return template, nil
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

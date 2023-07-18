@@ -15,7 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"sigs.k8s.io/yaml"
 
+	"logsviewer/pkg/backend/cleanup"
 	"logsviewer/pkg/backend/db"
+	"logsviewer/pkg/backend/env"
 	"logsviewer/pkg/backend/log"
 	"logsviewer/pkg/backend/monitoring/metrics"
 )
@@ -797,6 +799,11 @@ func Spawn(publicDir string) error {
 	if err != nil {
 		return err
 	}
+
+	go cleanup.StartCleanupJob(
+		env.GetEnv("POD_NAME", ""),
+		env.GetEnv("POD_NAMESPACE", ""),
+	)
 
 	http.ListenAndServe(":8080", mux)
 	return nil

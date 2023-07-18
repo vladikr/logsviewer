@@ -31,6 +31,10 @@ Control an instance of the logsViewer
 Syntax: lvctl [command] [options]
 
 Usage of setup:
+  -deletion-condition string
+        The condition to use for deleting the instance (creation, last-must-gather-upload, never) (default "last-must-gather-upload")
+  -deletion-delay duration
+        The delay before deleting the instance (default 48h0m0s)
   -id string
         The instance id
   -image string
@@ -61,6 +65,10 @@ Usage of import:
         The namespace (defaults to the current namespace)
 
 Usage of setup-import:
+  -deletion-condition string
+        The condition to use for deleting the instance (creation, last-must-gather-upload, never) (default "last-must-gather-upload")
+  -deletion-delay duration
+        The delay before deleting the instance (default 48h0m0s)
   -file string
         The must-gather file to import
   -id string
