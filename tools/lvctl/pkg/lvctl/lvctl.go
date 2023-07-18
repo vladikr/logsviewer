@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	routeClient "github.com/openshift/client-go/route/clientset/versioned"
 	templateClient "github.com/openshift/client-go/template/clientset/versioned"
@@ -15,8 +16,10 @@ import (
 )
 
 const (
-	defaultLogsviewerImage = "quay.io/vladikr/logsviewer:devel"
-	defaultStorageClass    = "ocs-storagecluster-ceph-rbd"
+	defaultLogsviewerImage   = "quay.io/vladikr/logsviewer:devel"
+	defaultStorageClass      = "ocs-storagecluster-ceph-rbd"
+	defaultDeletionCondition = "last-must-gather-upload"
+	defaultDeletionDelay     = 48 * time.Hour
 )
 
 type LogsViewer struct {
@@ -25,6 +28,8 @@ type LogsViewer struct {
 	storageClass       string
 	image              string
 	mustGatherFileName string
+	deletionCondition  string
+	deletionDelay      time.Duration
 
 	kubeconfig     string
 	k8sClient      *kubernetes.Clientset
@@ -38,7 +43,7 @@ func Run() {
 	setupCommand, deleteCommand, importCommand, setupImportCommand := lg.setupFlags()
 
 	if len(os.Args) < 2 {
-		klog.Exit("expected 'setup', 'delete', 'import' or 'setupImportCommand' subcommands")
+		klog.Exit("expected 'setup', 'delete', 'import' or 'setup-import' subcommands")
 	}
 
 	lg.createClientset()
@@ -78,6 +83,8 @@ func (lg *LogsViewer) setupFlags() (setupCommand, deleteCommand, importCommand, 
 	lg.commonFlags(setupCommand)
 	setupCommand.StringVar(&lg.storageClass, "storage-class", defaultStorageClass, "The storage class to use")
 	setupCommand.StringVar(&lg.image, "image", defaultLogsviewerImage, "The LogsViewer image to use")
+	setupCommand.StringVar(&lg.deletionCondition, "deletion-condition", defaultDeletionCondition, "The condition to use for deleting the instance (creation, last-must-gather-upload, never)")
+	setupCommand.DurationVar(&lg.deletionDelay, "deletion-delay", defaultDeletionDelay, "The delay before deleting the instance")
 
 	deleteCommand = flag.NewFlagSet("delete", flag.ExitOnError)
 	lg.commonFlags(deleteCommand)
@@ -91,6 +98,8 @@ func (lg *LogsViewer) setupFlags() (setupCommand, deleteCommand, importCommand, 
 	setupImportCommand.StringVar(&lg.storageClass, "storage-class", defaultStorageClass, "The storage class to use")
 	setupImportCommand.StringVar(&lg.image, "image", defaultLogsviewerImage, "The LogsViewer image to use")
 	setupImportCommand.StringVar(&lg.mustGatherFileName, "file", "", "The must-gather file to import")
+	setupImportCommand.StringVar(&lg.deletionCondition, "deletion-condition", defaultDeletionCondition, "The condition to use for deleting the instance (creation, last-must-gather-upload, never)")
+	setupImportCommand.DurationVar(&lg.deletionDelay, "deletion-delay", defaultDeletionDelay, "The delay before deleting the instance")
 
 	return
 }
