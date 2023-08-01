@@ -14,41 +14,51 @@ The query will be bound by the Virtual Machine lifecycle timeline.
  
 ## Running the service
 
-The service should be deployed on a running OpenShift cluster 
+Here are a few steps to quickly get the service up and running. For more
+information and custom configurations about the lvctl command, head to the
+[lvctl documentation](./tools/lvctl/README.md).
 
-- creating an instance
+### Get a lvctl binary
+
 ```bash
-
-$ ./deployment/lvctl.sh --create
-
-service/logsviewer-n482tc created     
-route.route.openshift.io/logviewer-n482tc created
-route.route.openshift.io/kibana-n482tc created
-configmap/es-configmap-n482tc created      
-configmap/kibana-configmap-n482tc created  
-configmap/logstash-configmap-n482tc created
-pod/logsviewer-n482tc created
-persistentvolumeclaim/elasticsearch-n482tc created
-Waiting for logsviewer-n482tc pod .............................................................................................................................................................DONE
-
-NAME               HOST/PORT                                            PATH   SERVICES            PORT   TERMINATION   WILDCARD
-kibana-n482tc      kibana-n482tc.apps.cnv2.engineering.redhat.com              logsviewer-n482tc   5601                 None
-logviewer-n482tc   logsviewer-n482tc.apps.cnv2.engineering.redhat.com          logsviewer-n482tc   8080                 None
+  # To get the latest released lvctl binary
+  LATEST_TAG=$(curl https://api.github.com/repos/kubevirt/kubevirt/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
+  wget https://github.com/vladikr/logsviewer/releases/download/${LATEST_TAG}/lvctl
+  chmod +x lvctl
+  
+  # Or to build the lvctl binary from source
+  make build -C tools/lvctl/
+  cp tools/lvctl/bin/lvctl . 
 ```
 
-- delete the instance
+### Create an instance of the LogsViewer
 
 ```bash
-$ ./deployment/lvctl.sh --delete --suffix=n482tc                                             
+  # To deploy LogsViewer in the current namespace with default configuration
+  ./lvctl setup
 
-service "logsviewer-n482tc" deleted                        
-route.route.openshift.io "logviewer-n482tc" deleted   
-route.route.openshift.io "kibana-n482tc" deleted                                                                       
-configmap "es-configmap-n482tc" deleted
-configmap "kibana-configmap-n482tc" deleted
-configmap "logstash-configmap-n482tc" deleted
-pod "logsviewer-n482tc" deleted
-persistentvolumeclaim "elasticsearch-n482tc" deleted
+  # Or if you want to import a must-gather file into the LogsViewer during the setup
+  ./lvctl setup-import -file <path-to/must-gather-file.tar.gz>
+```
+
+This commands will log the instance id and the route created to access the
+LogsViewer UI.
+
+> **Warning**
+> By default, the instance will be deleted 48 hours after the last must-gather
+> file was imported. Or after creation time if no must-gather file was imported.
+> Check the '-deletion-condition' and '-deletion-delay' flags for more details.
+
+### Import a new must-gather file into an instance of the LogsViewer
+
+```bash
+  ./lvctl import -id <instance-id> -file <path-to/must-gather-file.tar.gz>
+```
+
+### Delete an instance of the LogsViewer
+
+```bash
+  ./lvctl delete -id <instance-id>
 ```
 
 ## Routes
@@ -75,7 +85,5 @@ As it is today, relevant Virtual Machine logs can be only collected for the whol
 ## Import logs
 
 The service consumes compressed must-gathers. 
-This is the entry point for any operaion.
+This is the entry point for any operation.
 Head to the `Import` tab in the logsviewer UI to upload the logs.
-
-
