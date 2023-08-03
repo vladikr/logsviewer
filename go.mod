@@ -9,6 +9,8 @@ require (
 	github.com/openshift/api v0.0.0-20211217221424-8779abfbd571
 	github.com/openshift/client-go v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/client_model v0.3.0
+	github.com/rs/cors v1.9.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
@@ -45,7 +47,6 @@ require (
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.64.1 // indirect
-	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	golang.org/x/net v0.8.0 // indirect

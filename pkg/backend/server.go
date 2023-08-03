@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"sigs.k8s.io/yaml"
 
 	"logsviewer/pkg/backend/cleanup"
@@ -47,7 +48,7 @@ func (c *app) initStoreDB() error {
 	}
 	c.storeDB = dbInst
 	if err := c.storeDB.InitTables(); err != nil {
-		log.Log.Println("failed to connect to database", err)
+		log.Log.Println("failed to connect to database")
 		if err := c.storeDB.DropTables(); err != nil {
 			log.Log.Println("failed to drop tables", err)
 		}
@@ -805,6 +806,6 @@ func Spawn(publicDir string) error {
 		env.GetEnv("POD_NAMESPACE", ""),
 	)
 
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(":8080", cors.AllowAll().Handler(mux))
 	return nil
 }
