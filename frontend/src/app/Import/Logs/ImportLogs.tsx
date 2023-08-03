@@ -2,8 +2,7 @@ import * as React from 'react';
 import axios from 'axios';
 import { PageSection, Title, FileUpload, Bullseye, Card, EmptyState, EmptyStateIcon, Spinner, Progress } from '@patternfly/react-core';
 import "@patternfly/react-core/dist/styles/base.css";
-
-
+import { apiBaseUrl } from '@app/config';
 
 const ImportLogs: React.FunctionComponent = () => {
   const [filename, setFilename] = React.useState('');
@@ -21,7 +20,7 @@ const handleFileInputChange = (
     setFilename(file.name);
     setIsLoading(true);
     setErrorMessage(`Uploading.. ${file.name} - ${isLoading}`);
-    const url = '/uploadLogs';
+    const url = apiBaseUrl + '/uploadLogs';
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);

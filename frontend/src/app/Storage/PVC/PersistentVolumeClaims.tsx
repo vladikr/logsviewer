@@ -23,6 +23,7 @@ import {
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
 import { PVCTabs } from '@app/Storage/PVC/PVCTabs';
+import { apiBaseUrl } from "@app/config";
 
 const PersistentVolumeClaims: React.FunctionComponent = () => {
 
@@ -32,7 +33,7 @@ const PersistentVolumeClaims: React.FunctionComponent = () => {
   	React.useEffect(() => {
     	async function getData() {
       	await axios
-        	.get("/getPVCs")
+        	.get(apiBaseUrl + "/getPVCs")
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);

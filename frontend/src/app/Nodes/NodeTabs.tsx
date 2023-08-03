@@ -17,6 +17,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 interface NodeTabsProps {
     uuid: string
@@ -29,7 +30,7 @@ const NodeTabs: React.FunctionComponent<NodeTabsProps> = ({uuid}: NodeTabsProps)
   	React.useEffect(() => {
     	async function getData(uuid: string) {
       	await axios
-        	.get("/getObjYaml",
+        	.get(apiBaseUrl + "/getObjYaml",
             {
                 params: {
                     uuid: uuid,

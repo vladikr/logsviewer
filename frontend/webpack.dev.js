@@ -4,6 +4,7 @@ const path = require('path');
 const { merge } = require('webpack-merge');
 const common = require('./webpack.common.js');
 const { stylePaths } = require('./stylePaths');
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const HOST = process.env.HOST || 'localhost';
 const PORT = process.env.PORT || '9000';
 
@@ -22,12 +23,18 @@ module.exports = merge(common('development'), {
       overlay: true,
     },
   },
+  plugins: [
+    new MiniCssExtractPlugin({
+      filename: '[name].css',
+      chunkFilename: '[name].bundle.css',
+    }),
+  ],
   module: {
     rules: [
       {
-        test: /\.css$/,
+        test: /\.s?css$/,
         include: [...stylePaths],
-        use: ['style-loader', 'css-loader'],
+        use: [MiniCssExtractPlugin.loader, 'css-loader'],
       },
     ],
   },

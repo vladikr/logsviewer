@@ -17,6 +17,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 interface PVCTabsProps {
     uuid: string
@@ -29,7 +30,7 @@ const PVCTabs: React.FunctionComponent<PVCTabsProps> = ({uuid}: PVCTabsProps) =>
   	React.useEffect(() => {
     	async function getData(uuid: string) {
       	await axios
-        	.get("/getObjYaml",
+        	.get(apiBaseUrl + "/getObjYaml",
             {
                 params: {
                     uuid: uuid,
