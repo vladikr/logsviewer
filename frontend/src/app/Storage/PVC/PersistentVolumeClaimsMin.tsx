@@ -23,6 +23,7 @@ import {
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
 import { PVCTabs } from '@app/Storage/PVC/PVCTabs';
+import { apiBaseUrl } from "@app/config";
 
 interface PVCTableProps {
     namespace?: string,
@@ -53,7 +54,7 @@ const PVCsTableMinimal: React.FunctionComponent<PVCTableProps> = ({name, namespa
         let apiVerb = renderAPIGet(object)
     	async function getData() {
       	await axios
-        	.get(apiVerb!,
+        	.get(apiBaseUrl + apiVerb!,
             {
                 params: {
                     uuid: uuid

@@ -23,16 +23,19 @@ import {
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
 import { NodeTabs } from '@app/Nodes/NodeTabs';
+import { apiBaseUrl } from "@app/config";
 
 const Nodes: React.FunctionComponent = () => {
 
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
+    console.log(apiBaseUrl)
+
   	React.useEffect(() => {
     	async function getData() {
       	await axios
-        	.get("/nodes")
+        	.get(apiBaseUrl + "/nodes")
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);

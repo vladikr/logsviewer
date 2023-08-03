@@ -24,6 +24,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 const VirtualMachineInstances: React.FunctionComponent = () => {
     type Vmi = {
@@ -45,7 +46,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
   	React.useEffect(() => {
     	async function getData() {
       	await axios
-        	.get("/vmis")
+        	.get(apiBaseUrl + "/vmis")
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);
@@ -91,7 +92,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
 		vmiUUID: string,
 		nodeName: string
 	) => {
-        const retq = await axios.get("/getVMIQueryParams",
+        const retq = await axios.get(apiBaseUrl + "/getVMIQueryParams",
             {
                 params: {
                     vmiUUID: vmiUUID,

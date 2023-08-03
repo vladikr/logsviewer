@@ -22,6 +22,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 interface VmiMigrationsTableProps {
     namespace?: string,
@@ -35,7 +36,7 @@ const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, nam
   	React.useEffect(() => {
     	async function getData() {
       	await axios
-        	.get("/vmims",
+        	.get(apiBaseUrl + "/vmims",
             {
                 params: {
                     name: {name},
@@ -108,7 +109,7 @@ const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, nam
     const fetchDSLQuery = async (
 		uuid: string
 	) => {
-        const retq = await axios.get("/getMigrationQueryParams",
+        const retq = await axios.get(apiBaseUrl + "/getMigrationQueryParams",
             {
                 params: {
                     uuid: uuid

@@ -39,6 +39,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 const Pods: React.FunctionComponent = () => {
 
@@ -49,7 +50,7 @@ const Pods: React.FunctionComponent = () => {
   	React.useEffect(() => {
     	async function getData() {
       	await axios
-        	.get("/pods")
+        	.get(apiBaseUrl + "/pods")
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);
@@ -109,7 +110,7 @@ const Pods: React.FunctionComponent = () => {
   const fetchDSLQuery = async (
   	uuid: string
   ) => {
-      const retq = await axios.get("/getSinglePodQueryParams",
+      const retq = await axios.get(apiBaseUrl + "/getSinglePodQueryParams",
           {
               params: {
                   uuid: uuid

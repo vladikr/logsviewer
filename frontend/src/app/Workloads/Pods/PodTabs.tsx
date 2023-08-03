@@ -18,6 +18,7 @@ import {
   ToolbarItem,
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
+import { apiBaseUrl } from "@app/config";
 
 interface PodTabsProps {
     namespace?: string,
@@ -32,7 +33,7 @@ const PodTabs: React.FunctionComponent<PodTabsProps> = ({name, namespace, uuid}:
   	React.useEffect(() => {
     	async function getData(uuid: string) {
       	await axios
-        	.get("/getPodYaml",
+        	.get(apiBaseUrl + "/getPodYaml",
             {
                 params: {
                     uuid: uuid,
