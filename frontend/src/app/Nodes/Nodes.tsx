@@ -30,8 +30,6 @@ const Nodes: React.FunctionComponent = () => {
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
-    console.log(apiBaseUrl)
-
   	React.useEffect(() => {
     	async function getData() {
       	await axios
