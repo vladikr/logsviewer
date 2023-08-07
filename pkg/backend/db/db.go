@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
-    "strconv"
-    "strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-    "logsviewer/pkg/backend/log"
+	"logsviewer/pkg/backend/log"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -30,26 +30,25 @@ func (d *DatabaseInstance) StorePVC(pvc *PersistentVolumeClaim) error {
 	madeAt := pvc.CreationTime.Format("2006-01-02 15:04:05.999999")
 
 	_, err = stmt.ExecContext(
-        ctx,
-        pvc.Name,
-        pvc.Namespace,
-        pvc.UUID,
-        pvc.Reason,
-        pvc.Phase,
-        pvc.AccessModes,
-        pvc.StorageClassName,
-        pvc.VolumeName,
-        pvc.VolumeMode,
-        pvc.Capacity,
-        madeAt,
-        pvc.Content)
+		ctx,
+		pvc.Name,
+		pvc.Namespace,
+		pvc.UUID,
+		pvc.Reason,
+		pvc.Phase,
+		pvc.AccessModes,
+		pvc.StorageClassName,
+		pvc.VolumeName,
+		pvc.VolumeMode,
+		pvc.Capacity,
+		madeAt,
+		pvc.Content)
 	if err != nil {
 		return err
 	}
 
 	return nil
-} 
-
+}
 
 func (d *DatabaseInstance) StorePod(pod *Pod) error {
 	// TimeString - given a time, return the MySQL standard string representation
@@ -64,26 +63,26 @@ func (d *DatabaseInstance) StorePod(pod *Pod) error {
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(
-        ctx,
-        pod.Key,
-        pod.Kind,
-        pod.Name,
-        pod.Namespace,
-        pod.UUID,
-        pod.Phase,
-        pod.ActiveContainers,
-        pod.TotalContainers,
-        pod.NodeName,
-        madeAt,
-        pod.PVCs,
-        pod.Content,
-        pod.CreatedBy)
+		ctx,
+		pod.Key,
+		pod.Kind,
+		pod.Name,
+		pod.Namespace,
+		pod.UUID,
+		pod.Phase,
+		pod.ActiveContainers,
+		pod.TotalContainers,
+		pod.NodeName,
+		madeAt,
+		pod.PVCs,
+		pod.Content,
+		pod.CreatedBy)
 	if err != nil {
 		return err
 	}
 
 	return nil
-} 
+}
 
 func (d *DatabaseInstance) StoreNode(node *Node) error {
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
@@ -96,23 +95,23 @@ func (d *DatabaseInstance) StoreNode(node *Node) error {
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(
-        ctx,
-        node.Name,
-        node.SystemUUID,
-        node.Status,
-        node.InternalIP,
-        node.HostName,
-        node.OsImage,
-        node.KernelVersion,
-        node.KubletVersion,
-        node.ContainerRuntimeVersion,
-        node.Content)
+		ctx,
+		node.Name,
+		node.SystemUUID,
+		node.Status,
+		node.InternalIP,
+		node.HostName,
+		node.OsImage,
+		node.KernelVersion,
+		node.KubletVersion,
+		node.ContainerRuntimeVersion,
+		node.Content)
 	if err != nil {
 		return err
 	}
 
 	return nil
-} 
+}
 
 func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	// TimeString - given a time, return the MySQL standard string representation
@@ -127,46 +126,46 @@ func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(
-        ctx,
-        vmi.Name,
-        vmi.Namespace,
-        vmi.UUID,
-        vmi.Reason,
-        vmi.Phase,
-        vmi.NodeName,
-        madeAt,
-        vmi.Content)
+		ctx,
+		vmi.Name,
+		vmi.Namespace,
+		vmi.UUID,
+		vmi.Reason,
+		vmi.Phase,
+		vmi.NodeName,
+		madeAt,
+		vmi.Content)
 	if err != nil {
 		return err
 	}
-    if migrationState := vmi.Status.MigrationState; migrationState != nil {
-        if existngVmim, err := d.getSingleMigrationByUUID(string(migrationState.MigrationUID)); err == nil {
-            log.Log.Println("no error from SingleMigrationByUUID for uuid: ", string(migrationState.MigrationUID))
-            emptyContent := json.RawMessage(`{}`)
-            newVmim := VirtualMachineInstanceMigration{
-                Name: existngVmim.Name,
-                Namespace: existngVmim.Namespace,
-                UUID: string(migrationState.MigrationUID),
-                Phase: string(existngVmim.Phase),
-                VMIName: string(existngVmim.VMIName),
-                TargetPod: migrationState.TargetPod,
-                CreationTime: *migrationState.StartTimestamp,
-                EndTimestamp: *migrationState.EndTimestamp,
-                SourceNode: migrationState.SourceNode,
-                TargetNode: migrationState.TargetNode,
-                Completed: migrationState.Completed,
-                Failed: migrationState.Failed,
-                Content: emptyContent}
-            
-            log.Log.Println("SingleMigrationByUUID going to store: ", newVmim)
-            if err := d.StoreVmiMigration(&newVmim); err != nil {
-                log.Log.Println("SingleMigrationByUUID store ERROR: ", err, " for uuid: ", newVmim.UUID)
-                
-            }
-        }
-    }
+	if migrationState := vmi.Status.MigrationState; migrationState != nil {
+		if existngVmim, err := d.getSingleMigrationByUUID(string(migrationState.MigrationUID)); err == nil {
+			log.Log.Println("no error from SingleMigrationByUUID for uuid: ", string(migrationState.MigrationUID))
+			emptyContent := json.RawMessage(`{}`)
+			newVmim := VirtualMachineInstanceMigration{
+				Name:         existngVmim.Name,
+				Namespace:    existngVmim.Namespace,
+				UUID:         string(migrationState.MigrationUID),
+				Phase:        string(existngVmim.Phase),
+				VMIName:      string(existngVmim.VMIName),
+				TargetPod:    migrationState.TargetPod,
+				CreationTime: *migrationState.StartTimestamp,
+				EndTimestamp: *migrationState.EndTimestamp,
+				SourceNode:   migrationState.SourceNode,
+				TargetNode:   migrationState.TargetNode,
+				Completed:    migrationState.Completed,
+				Failed:       migrationState.Failed,
+				Content:      emptyContent}
+
+			log.Log.Println("SingleMigrationByUUID going to store: ", newVmim)
+			if err := d.StoreVmiMigration(&newVmim); err != nil {
+				log.Log.Println("SingleMigrationByUUID store ERROR: ", err, " for uuid: ", newVmim.UUID)
+
+			}
+		}
+	}
 	return nil
-} 
+}
 
 func (d *DatabaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigration) error {
 	// TimeString - given a time, return the MySQL standard string representation
@@ -182,42 +181,42 @@ func (d *DatabaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigrati
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(
-        ctx,
-        vmim.Name,
-        vmim.Namespace,
-        vmim.UUID,
-        vmim.Phase,
-        vmim.VMIName,
-        vmim.TargetPod,
-        madeAt,
-        endedAt,
-        vmim.SourceNode,
-        vmim.TargetNode,
-        vmim.Completed,
-        vmim.Failed,
-        vmim.Content)
+		ctx,
+		vmim.Name,
+		vmim.Namespace,
+		vmim.UUID,
+		vmim.Phase,
+		vmim.VMIName,
+		vmim.TargetPod,
+		madeAt,
+		endedAt,
+		vmim.SourceNode,
+		vmim.TargetNode,
+		vmim.Completed,
+		vmim.Failed,
+		vmim.Content)
 	if err != nil {
 		return err
 	}
 
 	return nil
-} 
+}
 
 var (
-	insertPodQuery       = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
-	insertVmiQuery       = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
-	insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
-	insertNodeQuery       = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
-	insertPVCQuery       = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertPodQuery          = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+	insertVmiQuery          = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertVmiMigrationQuery = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
+	insertNodeQuery         = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
+	insertPVCQuery          = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 )
 
 var (
 	defaultUsername = "mysql"
 	defaultPassword = "supersecret"
 	//defaultHost     = "mysql"
-	defaultHost     = "0.0.0.0"
-	defaultPort     = "3306"
-	defaultdbName   = "objtracker"
+	defaultHost   = "0.0.0.0"
+	defaultPort   = "3306"
+	defaultdbName = "objtracker"
 )
 
 type DatabaseInstance struct {
@@ -244,7 +243,7 @@ func NewDatabaseInstance() (*DatabaseInstance, error) {
 	dbInstance.cancel = cancel
 	err := dbInstance.connect()
 	if err != nil {
-        log.Log.Println("failed to connect to db: ", err)
+		log.Log.Println("failed to connect to db: ", err)
 		return nil, err
 	}
 
@@ -292,19 +291,19 @@ func (d *DatabaseInstance) connect() (err error) {
 }
 
 func (d *DatabaseInstance) createTables() error {
-    if err := d.createPodsTable(); err != nil {
+	if err := d.createPodsTable(); err != nil {
 		return err
 	}
-    if err := d.createNodesTable(); err != nil {
+	if err := d.createNodesTable(); err != nil {
 		return err
 	}
-    if err := d.createVmisTable(); err != nil {
+	if err := d.createVmisTable(); err != nil {
 		return err
 	}
-    if err := d.createVmiMigrationsTable(); err != nil {
+	if err := d.createVmiMigrationsTable(); err != nil {
 		return err
 	}
-    if err := d.createPVCsTable(); err != nil {
+	if err := d.createPVCsTable(); err != nil {
 		return err
 	}
 	return nil
@@ -469,534 +468,579 @@ func (d *DatabaseInstance) DropTables() error {
 	return nil
 }
 
-func (d *DatabaseInstance) getMeta(page int, perPage int, queryString string) (map[string]int, error) {  
+func (d *DatabaseInstance) getMeta(page int, perPage int, queryString string) (map[string]int, error) {
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
 	defer cancel()
 
-    stmt, err := d.db.PrepareContext(ctx, "select count(*) as totalRecords from (" + queryString + ") tmp")
-    if err != nil {
-        return nil, err
-    }
-    defer stmt.Close()
+	stmt, err := d.db.PrepareContext(ctx, "select count(*) as totalRecords from ("+queryString+") tmp")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
 
-    totalRecords := 0
+	totalRecords := 0
 
-    err = stmt.QueryRow().Scan(&totalRecords)
-    if err != nil {
-        return nil, err
-    }
-    
-    totalPages := 0
+	err = stmt.QueryRow().Scan(&totalRecords)
+	if err != nil {
+		return nil, err
+	}
 
-    if perPage != -1 {
-        totalPages = totalRecords/perPage
-    } else {
-        totalPages = 1
-    }
+	totalPages := 0
 
+	if perPage != -1 {
+		totalPages = totalRecords / perPage
+	} else {
+		totalPages = 1
+	}
 
-    if totalRecords % perPage > 0 {
-        totalPages++
-    } 
+	if totalRecords%perPage > 0 {
+		totalPages++
+	}
 
-    meta  := map[string]int { 
-        "page":        		page,
-        "per_page":    		perPage,
-        "totalRowCount":    totalRecords,
-        "totalPages": 		totalPages,
-    }
+	meta := map[string]int{
+		"page":          page,
+		"per_page":      perPage,
+		"totalRowCount": totalRecords,
+		"totalPages":    totalPages,
+	}
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    return meta, nil
+	return meta, nil
+}
+
+func (d *DatabaseInstance) GetResourceStats() (map[string]interface{}, error) {
+	queryString := `
+-- For pods
+SELECT 'pods', phase AS status, COUNT(*) AS count FROM pods GROUP BY phase
+-- For nodes
+UNION ALL
+SELECT 'nodes', status AS status, COUNT(*) AS count FROM nodes GROUP BY status
+-- For vmis
+UNION ALL
+SELECT 'vmis', phase AS status, COUNT(*) AS count FROM vmis GROUP BY phase
+-- For vmimigrations
+UNION ALL
+SELECT 'vmimigrations', phase AS status, COUNT(*) AS count FROM vmimigrations GROUP BY phase
+-- For pvcs
+UNION ALL
+SELECT 'pvcs', phase AS status, COUNT(*) AS count FROM pvcs GROUP BY phase
+`
+
+	log.Log.Println("queryString: ", queryString)
+
+	rows, err := d.db.Query(queryString)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	resultsMap := map[string]interface{}{
+		"pods":          map[string]int{},
+		"nodes":         map[string]int{},
+		"vmis":          map[string]int{},
+		"vmimigrations": map[string]int{},
+		"pvcs":          map[string]int{},
+	}
+
+	for rows.Next() {
+		var resourceType string
+		var status string
+		var count int
+
+		err = rows.Scan(&resourceType, &status, &count)
+		if err != nil {
+			return nil, err
+		}
+
+		resultsMap[resourceType].(map[string]int)[status] = count
+	}
+
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) GetMigrationQueryParams(migrationUUID string) (QueryResults, error) {
-    // looking for a source pod - pod runs on sourceNode createdBy vmiUUID before migration creationTime and after/equal vmi creation time
+	// looking for a source pod - pod runs on sourceNode createdBy vmiUUID before migration creationTime and after/equal vmi creation time
 
-    results := QueryResults{}
-    migration, err := d.getSingleMigrationByUUID(migrationUUID)
-    if err != nil {
-        return results, err
-    }
+	results := QueryResults{}
+	migration, err := d.getSingleMigrationByUUID(migrationUUID)
+	if err != nil {
+		return results, err
+	}
 
-    vmiUUID, creationTime, err := d.getVMICreationTimeByName(migration.VMIName, migration.Namespace)
-    if err != nil {
-        return results, err
-    }
+	vmiUUID, creationTime, err := d.getVMICreationTimeByName(migration.VMIName, migration.Namespace)
+	if err != nil {
+		return results, err
+	}
 
-    targetPodUUID, err := d.getPodUUIDByName(migration.TargetPod, migration.Namespace)
-    if err != nil {
-        return results, err
-    }
-    timeLayout := "2006-01-02 15:04:05.999999"
+	targetPodUUID, err := d.getPodUUIDByName(migration.TargetPod, migration.Namespace)
+	if err != nil {
+		return results, err
+	}
+	timeLayout := "2006-01-02 15:04:05.999999"
 	vmiMadeAt := creationTime.Format(timeLayout)
 	migrationMadeAt := migration.CreationTime.Format(timeLayout)
 	migrationEndedAt := migration.EndTimestamp.Format(timeLayout)
-    
+
 	sourcePodQueryString := fmt.Sprintf("select uuid, name from pods where createdBy='%s' AND nodeName='%s' AND creationTime BETWEEN '%s' and '%s' ORDER BY creationTime ASC LIMIT 1", vmiUUID, migration.SourceNode, vmiMadeAt, migrationMadeAt)
 	virtHandlerQueryString := "select name from pods where nodeName='%s' AND name like 'virt-handler%%'"
 
-    results.StartTimestamp, _ = time.Parse(timeLayout, migrationMadeAt)
-    results.EndTimestamp, _ = time.Parse(timeLayout, migrationEndedAt)
-    results.TargetPod = migration.TargetPod
-    results.TargetPodUUID = targetPodUUID
-    results.MigrationUUID = migrationUUID
-    results.VMIUUID = vmiUUID
+	results.StartTimestamp, _ = time.Parse(timeLayout, migrationMadeAt)
+	results.EndTimestamp, _ = time.Parse(timeLayout, migrationEndedAt)
+	results.TargetPod = migration.TargetPod
+	results.TargetPodUUID = targetPodUUID
+	results.MigrationUUID = migrationUUID
+	results.VMIUUID = vmiUUID
 
-    // get source virt-launcher info
-	rows := d.db.QueryRow(sourcePodQueryString) 
-    err = rows.Scan(&results.SourcePodUUID, &results.SourcePod)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("migration source pod lookup - can't find anything with this uuid: ", vmiUUID)
-            return results, err
-        } else {
-            log.Log.Println("migration source pod lookup, ERROR: ", err, " for uuid: ", vmiUUID)
-            return results, err
-        }
-    } 
-    
-    // get the source virt-handler
+	// get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString)
+	err = rows.Scan(&results.SourcePodUUID, &results.SourcePod)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("migration source pod lookup - can't find anything with this uuid: ", vmiUUID)
+			return results, err
+		} else {
+			log.Log.Println("migration source pod lookup, ERROR: ", err, " for uuid: ", vmiUUID)
+			return results, err
+		}
+	}
+
+	// get the source virt-handler
 	rows = d.db.QueryRow(fmt.Sprintf(virtHandlerQueryString, migration.SourceNode))
-    err = rows.Scan(&results.SourceHandler)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("migration src virt-handler lookup -  can't find virt-handler on node: ", migration.SourceNode)
-            return results, err
-        } else {
-            log.Log.Println("migration src virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.SourceNode)
-            return results, err
-        }
-    } 
+	err = rows.Scan(&results.SourceHandler)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("migration src virt-handler lookup -  can't find virt-handler on node: ", migration.SourceNode)
+			return results, err
+		} else {
+			log.Log.Println("migration src virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.SourceNode)
+			return results, err
+		}
+	}
 
-    // get the target virt-handler
+	// get the target virt-handler
 	rows = d.db.QueryRow(fmt.Sprintf(virtHandlerQueryString, migration.TargetNode))
-    err = rows.Scan(&results.TargetHandler)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("migration target virt-handler lookup -  can't find virt-handler on node: ", migration.TargetNode)
-            return results, err
-        } else {
-            log.Log.Println("migration target virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.TargetNode)
-            return results, err
-        }
-    } 
+	err = rows.Scan(&results.TargetHandler)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("migration target virt-handler lookup -  can't find virt-handler on node: ", migration.TargetNode)
+			return results, err
+		} else {
+			log.Log.Println("migration target virt-handler lookup - ERROR: ", err, " for nodeName: ", migration.TargetNode)
+			return results, err
+		}
+	}
 
-    // get a list of PVCs
-    pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
-    if err != nil {
-        return results, err
-    }
-    data, ok := pvcsListRes["data"].([]map[string]interface{})
-    if !ok {
-        log.Log.Println("failed to covert pvc data")
-        return results, nil 
-    }
+	// get a list of PVCs
+	pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
+	if err != nil {
+		return results, err
+	}
+	data, ok := pvcsListRes["data"].([]map[string]interface{})
+	if !ok {
+		log.Log.Println("failed to covert pvc data")
+		return results, nil
+	}
 
-    for _, pvc := range data {
-        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
-    }
+	for _, pvc := range data {
+		results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+	}
 
-    return results, nil 
+	return results, nil
 }
 
 func (d *DatabaseInstance) GetVMIQueryParams(vmiUUID string, nodeName string) (QueryResults, error) {
-    results := QueryResults{VMIUUID: vmiUUID}
- 
+	results := QueryResults{VMIUUID: vmiUUID}
+
 	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where createdBy='%s' AND nodeName='%s'", vmiUUID, nodeName)
 	virtHandlerQueryString := fmt.Sprintf("select name from pods where nodeName='%s' AND name like 'virt-handler%%'", nodeName)
 
+	// get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString)
+	err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("getVMIQueryParams can't find anything with this uuid: ", vmiUUID)
+			return results, err
+		} else {
+			log.Log.Println("getVMIQueryParams ERROR: ", err, " for uuid: ", vmiUUID)
+			return results, err
+		}
+	}
 
-    // get source virt-launcher info
-	rows := d.db.QueryRow(sourcePodQueryString) 
-    err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("getVMIQueryParams can't find anything with this uuid: ", vmiUUID)
-            return results, err
-        } else {
-            log.Log.Println("getVMIQueryParams ERROR: ", err, " for uuid: ", vmiUUID)
-            return results, err
-        }
-    } 
-    
-    // get the relevant virt-handler
-	rows = d.db.QueryRow(virtHandlerQueryString) 
-    err = rows.Scan(&results.SourceHandler)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("getVMIQueryParams can't find virt-handler on node: ", nodeName)
-            return results, err
-        } else {
-            log.Log.Println("getVMIQueryParams ERROR: ", err, " for nodeName: ", nodeName)
-            return results, err
-        }
-    } 
+	// get the relevant virt-handler
+	rows = d.db.QueryRow(virtHandlerQueryString)
+	err = rows.Scan(&results.SourceHandler)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("getVMIQueryParams can't find virt-handler on node: ", nodeName)
+			return results, err
+		} else {
+			log.Log.Println("getVMIQueryParams ERROR: ", err, " for nodeName: ", nodeName)
+			return results, err
+		}
+	}
 
-    // get a list of PVCs
-    pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
-    if err != nil {
-        return results, err
-    }
+	// get a list of PVCs
+	pvcsListRes, err := d.GetVMIPVCs(vmiUUID)
+	if err != nil {
+		return results, err
+	}
 
-    data, ok := pvcsListRes["data"].([]map[string]interface{})
-    if !ok {
-        log.Log.Println("failed to covert pvc data")
-        return results, nil 
-    }
+	data, ok := pvcsListRes["data"].([]map[string]interface{})
+	if !ok {
+		log.Log.Println("failed to covert pvc data")
+		return results, nil
+	}
 
-    for _, pvc := range data {
-        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
-    }
+	for _, pvc := range data {
+		results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+	}
 
-    return results, nil 
+	return results, nil
 }
 
 func (d *DatabaseInstance) GetPodQueryParams(podUUID string) (QueryResults, error) {
-    results := QueryResults{}
- 
+	results := QueryResults{}
+
 	sourcePodQueryString := fmt.Sprintf("select uuid, name, namespace, creationTime from pods where uuid='%s'", podUUID)
 
+	// get source virt-launcher info
+	rows := d.db.QueryRow(sourcePodQueryString)
+	err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
+			return results, err
+		} else {
+			log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
+			return results, err
+		}
+	}
 
-    // get source virt-launcher info
-	rows := d.db.QueryRow(sourcePodQueryString) 
-    err := rows.Scan(&results.SourcePodUUID, &results.SourcePod, &results.Namespace, &results.StartTimestamp)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
-            return results, err
-        } else {
-            log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
-            return results, err
-        }
-    } 
-    
-    // get a list of PVCs
-    pvcsListRes, err := d.GetPodPVCs(podUUID)
-    if err != nil {
-        return results, err
-    }
+	// get a list of PVCs
+	pvcsListRes, err := d.GetPodPVCs(podUUID)
+	if err != nil {
+		return results, err
+	}
 
-    data, ok := pvcsListRes["data"].([]map[string]interface{})
-    if !ok {
-        log.Log.Println("failed to covert pvc data")
-        return results, nil 
-    }
-    for _, pvc := range data {
-        results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
-    }
+	data, ok := pvcsListRes["data"].([]map[string]interface{})
+	if !ok {
+		log.Log.Println("failed to covert pvc data")
+		return results, nil
+	}
+	for _, pvc := range data {
+		results.PVCs = append(results.PVCs, fmt.Sprintf("%v", pvc["uuid"]))
+	}
 
-    return results, nil 
+	return results, nil
 }
 
 func (d *DatabaseInstance) GetPods(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, activeContainers, totalContainers, creationTime, createdBy from pods"
-    if queryDetails != nil {
-        conditions := []string{}
-        if (*queryDetails != (GenericQueryDetails{})) {
-            queryString = fmt.Sprintf("%s where ", queryString)
-        }
+	if queryDetails != nil {
+		conditions := []string{}
+		if *queryDetails != (GenericQueryDetails{}) {
+			queryString = fmt.Sprintf("%s where ", queryString)
+		}
 
-        if  queryDetails.Name != "" {
-            conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
-        }
-        if  queryDetails.Namespace != "" {
-            conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
-        }
-        if  queryDetails.UUID != "" {
-            conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
-        }
-        
-        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
-    }
-    
-    log.Log.Println("queryString: ", queryString)
-    resultsMap, err := d.genericGet(queryString, page, perPage)
+		if queryDetails.Name != "" {
+			conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+		}
+		if queryDetails.Namespace != "" {
+			conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
+		}
+		if queryDetails.UUID != "" {
+			conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+		}
+
+		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+	}
+
+	log.Log.Println("queryString: ", queryString)
+	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
-    return resultsMap, nil 
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) GetNodeObject(nodeUUID string) (*k8sv1.Node, error) {
-    var content json.RawMessage
- 
+	var content json.RawMessage
+
 	queryString := fmt.Sprintf("select content from nodes where systemUuid = '%s'", nodeUUID)
 
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&content)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("can't find nodes with this uuid: ", nodeUUID)
-            return nil, err
-        } else {
-            log.Log.Println("ERROR: ", err, " for uuid: ", nodeUUID)
-            return nil, err
-        }
-    }
-    
-    // Unmashal json
-    var node k8sv1.Node
+	rows := d.db.QueryRow(queryString)
+	err := rows.Scan(&content)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("can't find nodes with this uuid: ", nodeUUID)
+			return nil, err
+		} else {
+			log.Log.Println("ERROR: ", err, " for uuid: ", nodeUUID)
+			return nil, err
+		}
+	}
 
-    err = json.Unmarshal(content, &node)
-    if err != nil {
-      log.Log.Fatalln("failed to unmarshal json to node object - ", err)
-      return nil, err
-    }
- 
-    return &node, nil 
+	// Unmashal json
+	var node k8sv1.Node
+
+	err = json.Unmarshal(content, &node)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal json to node object - ", err)
+		return nil, err
+	}
+
+	return &node, nil
 
 }
 
 // GetPVCObject returns a PersistentVolumeClaim yaml object
 func (d *DatabaseInstance) GetPVCObject(pvcUUID string) (*k8sv1.PersistentVolumeClaim, error) {
-    var content json.RawMessage
- 
+	var content json.RawMessage
+
 	queryString := fmt.Sprintf("select content from pvcs where uuid = '%s'", pvcUUID)
 
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&content)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("can't find pvcs with this uuid: ", pvcUUID)
-            return nil, err
-        } else {
-            log.Log.Println("ERROR: ", err, " for uuid: ", pvcUUID)
-            return nil, err
-        }
-    }
-    
-    // Unmashal json
-    var pvc k8sv1.PersistentVolumeClaim
+	rows := d.db.QueryRow(queryString)
+	err := rows.Scan(&content)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("can't find pvcs with this uuid: ", pvcUUID)
+			return nil, err
+		} else {
+			log.Log.Println("ERROR: ", err, " for uuid: ", pvcUUID)
+			return nil, err
+		}
+	}
 
-    err = json.Unmarshal(content, &pvc)
-    if err != nil {
-      log.Log.Fatalln("failed to unmarshal json to pvc object - ", err)
-      return nil, err
-    }
- 
-    return &pvc, nil 
+	// Unmashal json
+	var pvc k8sv1.PersistentVolumeClaim
+
+	err = json.Unmarshal(content, &pvc)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal json to pvc object - ", err)
+		return nil, err
+	}
+
+	return &pvc, nil
 
 }
 
 func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
 	queryString := "select name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime from pvcs"
-    if queryDetails != nil {
-        conditions := []string{}
-        if (*queryDetails != (GenericQueryDetails{})) {
-            queryString = fmt.Sprintf("%s where ", queryString)
-        }
+	if queryDetails != nil {
+		conditions := []string{}
+		if *queryDetails != (GenericQueryDetails{}) {
+			queryString = fmt.Sprintf("%s where ", queryString)
+		}
 
-        if  queryDetails.Name != "" {
-            // handle list of claim names
-            claimsList := strings.Split(queryDetails.Name, ",")
-            if len(claimsList) > 1 {
-                queryStr := "name in ("
-                for idx, claim := range claimsList {
-                    queryStr += fmt.Sprintf("'%s'", claim)
-                    if idx != len(claimsList) - 1 {
-                        queryStr += ", "
-                    }
-                }
-                queryStr += ")"
-                conditions = append(conditions, queryStr)
-            } else {
-                conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
-            }
-        }
-        if  queryDetails.Namespace != "" {
-            conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
-        }
-        if  queryDetails.UUID != "" {
-            conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
-        }
-        
-        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
-    }
-    
-    log.Log.Println("queryString: ", queryString)
-    resultsMap, err := d.genericGet(queryString, page, perPage)
+		if queryDetails.Name != "" {
+			// handle list of claim names
+			claimsList := strings.Split(queryDetails.Name, ",")
+			if len(claimsList) > 1 {
+				queryStr := "name in ("
+				for idx, claim := range claimsList {
+					queryStr += fmt.Sprintf("'%s'", claim)
+					if idx != len(claimsList)-1 {
+						queryStr += ", "
+					}
+				}
+				queryStr += ")"
+				conditions = append(conditions, queryStr)
+			} else {
+				conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+			}
+		}
+		if queryDetails.Namespace != "" {
+			conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
+		}
+		if queryDetails.UUID != "" {
+			conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+		}
+
+		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+	}
+
+	log.Log.Println("queryString: ", queryString)
+	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
-    return resultsMap, nil 
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) GetVMIPVCs(vmiUUID string) (map[string]interface{}, error) {
 	podQueryString := fmt.Sprintf("select pvcs from pods where createdBy='%s'", vmiUUID)
-    res, err := d.genericGetPVCs(podQueryString)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("GeVMIPVCs can't find anything with this uuid: ", vmiUUID)
-            return nil, err
-        } else {
-            log.Log.Println("GetVMIPVCs ERROR: ", err, " for uuid: ", vmiUUID)
-            return nil, err
-        }
-    }
-    return res, nil
+	res, err := d.genericGetPVCs(podQueryString)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("GeVMIPVCs can't find anything with this uuid: ", vmiUUID)
+			return nil, err
+		} else {
+			log.Log.Println("GetVMIPVCs ERROR: ", err, " for uuid: ", vmiUUID)
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (d *DatabaseInstance) GetPodPVCs(podUUID string) (map[string]interface{}, error) {
 	queryString := fmt.Sprintf("select pvcs from pods where uuid = '%s'", podUUID)
-    res, err := d.genericGetPVCs(queryString)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("GetPodPVCs can't find anything with this uuid: ", podUUID)
-            return nil, err
-        } else {
-            log.Log.Println("GetPodPVCs ERROR: ", err, " for uuid: ", podUUID)
-            return nil, err
-        }
-    }
-    return res, nil
+	res, err := d.genericGetPVCs(queryString)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("GetPodPVCs can't find anything with this uuid: ", podUUID)
+			return nil, err
+		} else {
+			log.Log.Println("GetPodPVCs ERROR: ", err, " for uuid: ", podUUID)
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (d *DatabaseInstance) genericGetPVCs(queryString string) (map[string]interface{}, error) {
-    podPvcs := ""
-    pvcsList := make(map[string]interface{})
+	podPvcs := ""
+	pvcsList := make(map[string]interface{})
 
-    // get pod pvcs
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&podPvcs)
-    if err != nil {
-        return nil, err
-    }
-    if podPvcs != "" { 
-        queryDetails := GenericQueryDetails{
-                            Name: podPvcs,
-                        }
-        pvcsList, err = d.GetPVCs(-1, -1, &queryDetails)
-        if err != nil {
-            return nil, err
-        }
-    } else {
-        data     := []map[string]interface{}{}
-        meta  := map[string]int { 
-            "page":        		-1,
-            "per_page":    		-1,
-            "totalRowCount":    0,
-            "totalPages": 		1,
-        }
-        pvcsList["data"] = data
-        pvcsList["meta"] = meta
-    }
-    return pvcsList, nil 
+	// get pod pvcs
+	rows := d.db.QueryRow(queryString)
+	err := rows.Scan(&podPvcs)
+	if err != nil {
+		return nil, err
+	}
+	if podPvcs != "" {
+		queryDetails := GenericQueryDetails{
+			Name: podPvcs,
+		}
+		pvcsList, err = d.GetPVCs(-1, -1, &queryDetails)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data := []map[string]interface{}{}
+		meta := map[string]int{
+			"page":          -1,
+			"per_page":      -1,
+			"totalRowCount": 0,
+			"totalPages":    1,
+		}
+		pvcsList["data"] = data
+		pvcsList["meta"] = meta
+	}
+	return pvcsList, nil
 }
 
 func (d *DatabaseInstance) GetVMIObject(vmiUUID string) (*kubevirtv1.VirtualMachineInstance, error) {
-    var content json.RawMessage
- 
+	var content json.RawMessage
+
 	queryString := fmt.Sprintf("select content from vmis where uuid = '%s'", vmiUUID)
 
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&content)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("can't find VMIs with this uuid: ", vmiUUID)
-            return nil, err
-        } else {
-            log.Log.Println("ERROR: ", err, " for uuid: ", vmiUUID)
-            return nil, err
-        }
-    }
+	rows := d.db.QueryRow(queryString)
+	err := rows.Scan(&content)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("can't find VMIs with this uuid: ", vmiUUID)
+			return nil, err
+		} else {
+			log.Log.Println("ERROR: ", err, " for uuid: ", vmiUUID)
+			return nil, err
+		}
+	}
 
-    
-    // Unmashal json
-    var vmi kubevirtv1.VirtualMachineInstance
+	// Unmashal json
+	var vmi kubevirtv1.VirtualMachineInstance
 
-    err = json.Unmarshal(content, &vmi)
-    if err != nil {
-      log.Log.Fatalln("failed to unmarshal json to vmi object - ", err)
-      return nil, err
-    }
- 
-    return &vmi, nil 
+	err = json.Unmarshal(content, &vmi)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal json to vmi object - ", err)
+		return nil, err
+	}
+
+	return &vmi, nil
 
 }
 
 func (d *DatabaseInstance) GetPodObject(podUUID string) (*k8sv1.Pod, error) {
-    var content json.RawMessage
- 
+	var content json.RawMessage
+
 	queryString := fmt.Sprintf("select content from pods where uuid = '%s'", podUUID)
 
-    // get source virt-launcher info
-	rows := d.db.QueryRow(queryString) 
-    err := rows.Scan(&content)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
-            return nil, err
-        } else {
-            log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
-            return nil, err
-        }
-    }
+	// get source virt-launcher info
+	rows := d.db.QueryRow(queryString)
+	err := rows.Scan(&content)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("getPodQueryParams can't find anything with this uuid: ", podUUID)
+			return nil, err
+		} else {
+			log.Log.Println("getPodQueryParams ERROR: ", err, " for uuid: ", podUUID)
+			return nil, err
+		}
+	}
 
-    
-    // Unmashal json
-    var pod k8sv1.Pod
+	// Unmashal json
+	var pod k8sv1.Pod
 
-    err = json.Unmarshal(content, &pod)
-    if err != nil {
-      log.Log.Fatalln("failed to unmarshal json to pod - ", err)
-      return nil, err
-    }
- 
-    return &pod, nil 
+	err = json.Unmarshal(content, &pod)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal json to pod - ", err)
+		return nil, err
+	}
+
+	return &pod, nil
 
 }
 
 func (d *DatabaseInstance) GetNodes(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion from nodes"
-    resultsMap, err := d.genericGet(queryString, page, perPage)
+	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
-    return resultsMap, nil 
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) GetVmis(page int, perPage int) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, reason, nodeName, creationTime from vmis"
-    resultsMap, err := d.genericGet(queryString, page, perPage)
+	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
-    return resultsMap, nil 
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *GenericQueryDetails) (map[string]interface{}, error) {
 
 	queryString := "select name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations"
 
-    if vmiDetails != nil {
-        conditions := []string{}
-        if (*vmiDetails != (GenericQueryDetails{})) {
-            queryString = fmt.Sprintf("%s where ", queryString)
-        }
+	if vmiDetails != nil {
+		conditions := []string{}
+		if *vmiDetails != (GenericQueryDetails{}) {
+			queryString = fmt.Sprintf("%s where ", queryString)
+		}
 
-        if  vmiDetails.Name != "" {
-            conditions = append(conditions, fmt.Sprintf("vmiName='%s'", vmiDetails.Name))
-        }
-        if  vmiDetails.Namespace != "" {
-            conditions = append(conditions, fmt.Sprintf("namespace='%s'", vmiDetails.Namespace))
-        }
-        if  vmiDetails.UUID != "" {
-            conditions = append(conditions, fmt.Sprintf("uuid='%s'", vmiDetails.UUID))
-        }
-        
-        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
-    }
-    
-    log.Log.Println("queryString: ", queryString)
-    resultsMap, err := d.genericGet(queryString, page, perPage)
+		if vmiDetails.Name != "" {
+			conditions = append(conditions, fmt.Sprintf("vmiName='%s'", vmiDetails.Name))
+		}
+		if vmiDetails.Namespace != "" {
+			conditions = append(conditions, fmt.Sprintf("namespace='%s'", vmiDetails.Namespace))
+		}
+		if vmiDetails.UUID != "" {
+			conditions = append(conditions, fmt.Sprintf("uuid='%s'", vmiDetails.UUID))
+		}
+
+		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+	}
+
+	log.Log.Println("queryString: ", queryString)
+	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
 	}
-    return resultsMap, nil 
+	return resultsMap, nil
 }
 
 func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int) (map[string]interface{}, error) {
@@ -1005,57 +1049,54 @@ func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int)
 	defer cancel()
 
 	limit := " "
-    if perPage != -1 {
-        limit = " limit " + strconv.Itoa((page - 1) * perPage) + ", " + strconv.Itoa(perPage)  
-    }
+	if perPage != -1 {
+		limit = " limit " + strconv.Itoa((page-1)*perPage) + ", " + strconv.Itoa(perPage)
+	}
 
-	stmt, err := d.db.PrepareContext(ctx, queryString + limit)
+	stmt, err := d.db.PrepareContext(ctx, queryString+limit)
 	if err != nil {
 		return response, err
 	}
 	defer stmt.Close()
 
-
-	rows, err := stmt.Query() 
+	rows, err := stmt.Query()
 	if err != nil {
 		return response, err
 	}
 
 	defer rows.Close()
 
-
-
-    columns, err := rows.Columns()
+	columns, err := rows.Columns()
 	if err != nil {
 		return response, err
 	}
-	data     := []map[string]interface{}{}
-    count    := len(columns)
-    values   := make([]interface{}, count)
-    scanArgs := make([]interface{}, count)
+	data := []map[string]interface{}{}
+	count := len(columns)
+	values := make([]interface{}, count)
+	scanArgs := make([]interface{}, count)
 
-    for i := range values {
-        scanArgs[i] = &values[i]
-    }
+	for i := range values {
+		scanArgs[i] = &values[i]
+	}
 
-    for rows.Next() {
-        err := rows.Scan(scanArgs...)
-        if err != nil {
+	for rows.Next() {
+		err := rows.Scan(scanArgs...)
+		if err != nil {
 			return response, err
 		}
 		tbRecord := map[string]interface{}{}
-        for i, col := range columns {
-           v     := values[i]
-           b, ok := v.([]byte)
-           if (ok) {
-               tbRecord[col] = string(b)
-           } else {
-               tbRecord[col] = v
-           }
-        }
-        data = append(data, tbRecord)
+		for i, col := range columns {
+			v := values[i]
+			b, ok := v.([]byte)
+			if ok {
+				tbRecord[col] = string(b)
+			} else {
+				tbRecord[col] = v
+			}
+		}
+		data = append(data, tbRecord)
 
-    } 
+	}
 
 	meta, err := d.getMeta(page, perPage, queryString)
 	if err != nil {
@@ -1063,91 +1104,90 @@ func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int)
 	}
 	response["data"] = data
 	response["meta"] = meta
-    return response, nil 
+	return response, nil
 }
 
 func (d *DatabaseInstance) getPodUUIDByName(name string, namespace string) (string, error) {
 
-    var podUUID string
-    query := fmt.Sprintf("SELECT uuid from pods WHERE name='%s' AND namespace='%s'", name, namespace)
-	rows := d.db.QueryRow(query) 
+	var podUUID string
+	query := fmt.Sprintf("SELECT uuid from pods WHERE name='%s' AND namespace='%s'", name, namespace)
+	rows := d.db.QueryRow(query)
 
-    err := rows.Scan(&podUUID)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("failed find a pod with key: ", fmt.Sprintf("%s/%s",name, namespace))
-            return podUUID, err
-        } else {
-            log.Log.Println("ERROR: ", err, " for pod key: ", fmt.Sprintf("%s/%s",name, namespace))
-            return podUUID, err
-        }
-    } 
-    
-    return podUUID, nil
+	err := rows.Scan(&podUUID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("failed find a pod with key: ", fmt.Sprintf("%s/%s", name, namespace))
+			return podUUID, err
+		} else {
+			log.Log.Println("ERROR: ", err, " for pod key: ", fmt.Sprintf("%s/%s", name, namespace))
+			return podUUID, err
+		}
+	}
+
+	return podUUID, nil
 }
 
 func (d *DatabaseInstance) getVMICreationTimeByName(name string, namespace string) (string, time.Time, error) {
 
-    var creationTime time.Time
-    var vmiUUID string
-    query := fmt.Sprintf("SELECT uuid, creationTime from vmis WHERE name='%s' AND namespace='%s'", name, namespace)
-	rows := d.db.QueryRow(query) 
+	var creationTime time.Time
+	var vmiUUID string
+	query := fmt.Sprintf("SELECT uuid, creationTime from vmis WHERE name='%s' AND namespace='%s'", name, namespace)
+	rows := d.db.QueryRow(query)
 
-    err := rows.Scan(&vmiUUID, &creationTime)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("failed find VMI with key: ", fmt.Sprintf("%s/%s",name, namespace))
-            return vmiUUID, creationTime, err
-        } else {
-            log.Log.Println("ERROR: ", err, " for vmi key: ", fmt.Sprintf("%s/%s",name, namespace))
-            return vmiUUID, creationTime, err
-        }
-    } 
-    
-    return vmiUUID, creationTime, nil
+	err := rows.Scan(&vmiUUID, &creationTime)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("failed find VMI with key: ", fmt.Sprintf("%s/%s", name, namespace))
+			return vmiUUID, creationTime, err
+		} else {
+			log.Log.Println("ERROR: ", err, " for vmi key: ", fmt.Sprintf("%s/%s", name, namespace))
+			return vmiUUID, creationTime, err
+		}
+	}
+
+	return vmiUUID, creationTime, nil
 }
 
 func (d *DatabaseInstance) getSingleMigrationByUUID(uuid string) (*VirtualMachineInstanceMigration, error) {
 
-    vmim := VirtualMachineInstanceMigration{}
-    var startTime time.Time
-    var endTime time.Time
-     
-    query := fmt.Sprintf("SELECT name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations WHERE uuid='%s'", uuid)
-	rows := d.db.QueryRow(query) 
-    var targetNode string
-    err := rows.Scan(&vmim.Name, &vmim.Namespace, &vmim.UUID, &vmim.Phase, &vmim.VMIName, &vmim.TargetPod, 
-                     &startTime, &endTime, &vmim.SourceNode, &targetNode, &vmim.Completed,
-                     &vmim.Failed)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            log.Log.Println("SingleMigrationByUUID can't find anything with this uuid: ", uuid)
-            return &vmim, err
-        } else {
-            log.Log.Println("SingleMigrationByUUID ERROR: ", err, " for uuid: ", uuid)
-            return &vmim, err
-        }
-    } 
-    
-    vmim.TargetNode = targetNode
-    vmim.UUID = uuid
-    var startTimePtr metav1.Time
-    var endTimePtr metav1.Time
+	vmim := VirtualMachineInstanceMigration{}
+	var startTime time.Time
+	var endTime time.Time
 
-    
-    startTimeStr := []string{startTime.Format("2006-01-02T15:04:05Z07:00")}
-    if err := metav1.Convert_Slice_string_To_v1_Time(&startTimeStr, &startTimePtr, nil); err != nil {
-        log.Log.Println("SingleMigrationByUUID ERROR: failed to convert time", err, " for uuid: ", uuid)
-        return &vmim, err
-    }
-    endTimeStr := []string{endTime.Format("2006-01-02T15:04:05Z07:00")}
-    if err := metav1.Convert_Slice_string_To_v1_Time(&endTimeStr, &endTimePtr, nil); err != nil {
-        log.Log.Println("SingleMigrationByUUID ERROR: failed to convert time", err, " for uuid: ", uuid)
-        return &vmim, err
-    }
+	query := fmt.Sprintf("SELECT name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed from vmimigrations WHERE uuid='%s'", uuid)
+	rows := d.db.QueryRow(query)
+	var targetNode string
+	err := rows.Scan(&vmim.Name, &vmim.Namespace, &vmim.UUID, &vmim.Phase, &vmim.VMIName, &vmim.TargetPod,
+		&startTime, &endTime, &vmim.SourceNode, &targetNode, &vmim.Completed,
+		&vmim.Failed)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Log.Println("SingleMigrationByUUID can't find anything with this uuid: ", uuid)
+			return &vmim, err
+		} else {
+			log.Log.Println("SingleMigrationByUUID ERROR: ", err, " for uuid: ", uuid)
+			return &vmim, err
+		}
+	}
 
-    vmim.CreationTime = startTimePtr
-    vmim.EndTimestamp = endTimePtr
-    log.Log.Println("SingleMigrationByUUID: ", vmim)
-    return &vmim, nil
+	vmim.TargetNode = targetNode
+	vmim.UUID = uuid
+	var startTimePtr metav1.Time
+	var endTimePtr metav1.Time
+
+	startTimeStr := []string{startTime.Format("2006-01-02T15:04:05Z07:00")}
+	if err := metav1.Convert_Slice_string_To_v1_Time(&startTimeStr, &startTimePtr, nil); err != nil {
+		log.Log.Println("SingleMigrationByUUID ERROR: failed to convert time", err, " for uuid: ", uuid)
+		return &vmim, err
+	}
+	endTimeStr := []string{endTime.Format("2006-01-02T15:04:05Z07:00")}
+	if err := metav1.Convert_Slice_string_To_v1_Time(&endTimeStr, &endTimePtr, nil); err != nil {
+		log.Log.Println("SingleMigrationByUUID ERROR: failed to convert time", err, " for uuid: ", uuid)
+		return &vmim, err
+	}
+
+	vmim.CreationTime = startTimePtr
+	vmim.EndTimestamp = endTimePtr
+	log.Log.Println("SingleMigrationByUUID: ", vmim)
+	return &vmim, nil
 }
