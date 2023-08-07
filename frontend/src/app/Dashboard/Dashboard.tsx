@@ -10,9 +10,10 @@ import {
   CardBody,
   Button,
   List,
-  ListItem, Page, Chip, Grid, GridItem, CardFooter,
+  ListItem, Page, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans,
 } from "@patternfly/react-core";
 import {apiBaseUrl} from "@app/config";
+import {CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon} from "@patternfly/react-icons";
 
 type data = {
   meta: {
@@ -21,13 +22,33 @@ type data = {
   data: any[];
 }
 
+type resourceStatus = {
+  [status: string]: number;
+}
+
+type resourceCount = {
+  nodes: resourceStatus;
+  pods: resourceStatus;
+  pvcs: resourceStatus;
+  vmimigrations: resourceStatus;
+  vmis: resourceStatus;
+}
+
 const Dashboard: React.FunctionComponent = () => {
+  const [resourceCount, setResourceCount] = React.useState<resourceCount>({
+    nodes: {},
+    pods: {},
+    pvcs: {},
+    vmimigrations: {},
+    vmis: {}
+  });
   const [nodes, setNodes] = React.useState<data | undefined>(undefined);
   const [vmis, setVmis] = React.useState<data | undefined>(undefined);
   const [pods, setPods] = React.useState<data | undefined>(undefined);
   const [pvcs, setPvcs] = React.useState<data | undefined>(undefined);
 
   React.useEffect(() => {
+    fetch("/getResourceStats", setResourceCount)
     fetch("/nodes", setNodes)
     fetch("/vmis", setVmis)
     fetch("/pods", setPods)
@@ -43,33 +64,142 @@ const Dashboard: React.FunctionComponent = () => {
       });
   }
 
+  const gridItems = (title, counts) => {
+    const style = {
+      marginLeft: "auto",
+      marginRight: "5px",
+    }
+
+    const gridSpan: gridSpans | undefined = 12-((counts.slice(1).filter((count) => count > 0).length) * 2) as gridSpans
+
+    console.log(gridSpan)
+
+    return <Grid hasGutter>
+      <GridItem span={gridSpan}>{counts[0]} {title}</GridItem>
+      {
+        counts.length > 1 && counts[1] > 0 &&
+          <GridItem span={2} style={style}>
+            {counts[1]}
+              <Icon status="success" className="pf-u-ml-xs">
+                  <CheckCircleIcon />
+              </Icon>
+          </GridItem>
+      }
+      {
+        counts.length > 2 && counts[2] > 0 &&
+          <GridItem span={2} style={style}>
+            {counts[2]}
+              <Icon status="danger" className="pf-u-ml-xs">
+                  <ExclamationCircleIcon />
+              </Icon>
+          </GridItem>
+      }
+      {
+        counts.length > 3 && counts[3] > 0 &&
+          <GridItem span={2} style={style}>
+            {counts[3]}
+              <Icon status="warning" className="pf-u-ml-xs">
+                <ExclamationTriangleIcon />
+              </Icon>
+          </GridItem>
+      }
+    </Grid>
+  }
+
   const clusterInventoryCard = () => {
+    let nodesCount = 0, readyNodesCount = 0, notReadyNodesCount = 0,
+      vmisCount = 0, healthyVmisCount = 0, otherVmisCount = 0, failedVmisCount = 0,
+      vmimsCount = 0, healthyVmimsCount = 0, otherVmimsCount = 0, failedVmimsCount = 0,
+      podsCount = 0, healthyPodsCount = 0, failedPodsCount = 0, otherPodsCount = 0,
+      pvcsCount = 0, healthyPvcsCount = 0, failedPvcsCount = 0, otherPvcsCount = 0;
+
+    for (let nodesKey in resourceCount.nodes) {
+      nodesCount += resourceCount.nodes[nodesKey];
+      if (nodesKey === "Ready") {
+        readyNodesCount += resourceCount.nodes[nodesKey];
+      } else {
+        notReadyNodesCount += resourceCount.nodes[nodesKey];
+      }
+    }
+
+    for (let vmisKey in resourceCount.vmis) {
+      vmisCount += resourceCount.vmis[vmisKey];
+      if (vmisKey === "Running" || vmisKey === "Succeeded") {
+        healthyVmisCount += resourceCount.vmis[vmisKey];
+      } else if (vmisKey === "Failed") {
+        failedVmisCount += resourceCount.vmis[vmisKey];
+      } else {
+        otherVmisCount += resourceCount.vmis[vmisKey];
+      }
+    }
+    for (let vmimsKey in resourceCount.vmimigrations) {
+      vmimsCount += resourceCount.vmimigrations[vmimsKey];
+      if (vmimsKey === "Running" || vmimsKey === "Succeeded") {
+        healthyVmimsCount += resourceCount.vmimigrations[vmimsKey];
+      } else if (vmimsKey === "Failed") {
+        failedVmimsCount += resourceCount.vmimigrations[vmimsKey];
+      } else {
+        otherVmimsCount += resourceCount.vmimigrations[vmimsKey];
+      }
+    }
+    for (let podsKey in resourceCount.pods) {
+      podsCount += resourceCount.pods[podsKey];
+      if (podsKey === "Running" || podsKey === "Succeeded") {
+        healthyPodsCount += resourceCount.pods[podsKey];
+      } else if (podsKey === "Failed") {
+        failedPodsCount += resourceCount.pods[podsKey];
+      } else {
+        otherPodsCount += resourceCount.pods[podsKey];
+      }
+    }
+
+    for (let pvcsKey in resourceCount.pvcs) {
+      pvcsCount += resourceCount.pvcs[pvcsKey];
+      if (pvcsKey === "Bound") {
+        healthyPvcsCount += resourceCount.pvcs[pvcsKey];
+      } else if (pvcsKey === "Lost") {
+        failedPvcsCount += resourceCount.pvcs[pvcsKey];
+      } else {
+        otherPvcsCount += resourceCount.pvcs[pvcsKey];
+      }
+    }
+
+    const nodesGrid = gridItems(
+      "Nodes",
+      [nodesCount, readyNodesCount, notReadyNodesCount],
+    );
+
+    const vmisGrid = gridItems(
+      "VMIs",
+      [vmisCount, healthyVmisCount, failedVmisCount, otherVmisCount],
+    );
+
+    const vmimsGrid = gridItems(
+      "VMI Migrations",
+      [vmimsCount, healthyVmimsCount, failedVmimsCount, otherVmimsCount],
+    );
+
+    const podsGrid = gridItems(
+      "Pods",
+      [podsCount, healthyPodsCount, failedPodsCount, otherPodsCount],
+    );
+
+    const pvcsGrid = gridItems(
+      "PVCs",
+      [pvcsCount, healthyPvcsCount, failedPvcsCount, otherPvcsCount],
+    );
+
     return (
       <Card>
         <CardTitle>Cluster inventory</CardTitle>
         <CardBody>
-          {
-            nodes === undefined || vmis === undefined || pods === undefined || pvcs === undefined ? (
-              <Bullseye>
-                <Spinner aria-label="Loading data" />
-              </Bullseye>
-            ) : (
-              <List isPlain isBordered>
-                <ListItem><a href="/nodes">
-                  {nodes.meta.totalRowCount} Nodes
-                </a></ListItem>
-                <ListItem><a href="/workloads/virtualmachineinstances">
-                  {vmis.meta.totalRowCount} Virtual Machine Instances
-                </a></ListItem>
-                <ListItem><a href="/workloads/pods">
-                  {pods.meta.totalRowCount} Pods
-                </a></ListItem>
-                <ListItem><a href="/storage/pvcs">
-                  {pvcs.meta.totalRowCount} PVCs
-                </a></ListItem>
-              </List>
-            )
-          }
+          <List isPlain isBordered>
+            <ListItem><a href="/nodes">{nodesGrid}</a></ListItem>
+            <ListItem><a href="/workloads/virtualmachineinstances">{vmisGrid}</a></ListItem>
+            <ListItem><a href="/workloads/migrations">{vmimsGrid}</a></ListItem>
+            <ListItem><a href="/workloads/pods">{podsGrid}</a></ListItem>
+            <ListItem><a href="/storage/pvcs">{pvcsGrid}</a></ListItem>
+          </List>
         </CardBody>
       </Card>
     )
@@ -193,6 +323,8 @@ const Dashboard: React.FunctionComponent = () => {
     )
   }
 
+  console.log(resourceCount)
+
   return (
     <Page isManagedSidebar>
       <PageSection>
@@ -203,8 +335,8 @@ const Dashboard: React.FunctionComponent = () => {
 
       <PageSection>
         <Grid hasGutter>
-          <GridItem span={4} style={{ height: "100%" }}>{clusterInventoryCard()}</GridItem>
-          <GridItem span={8}>{nodesStatusCard()}</GridItem>
+          <GridItem span={6} style={{ height: "100%" }}>{clusterInventoryCard()}</GridItem>
+          <GridItem span={6}>{nodesStatusCard()}</GridItem>
           <GridItem span={12}>{virtualMachineInstancesCard()}</GridItem>
           <GridItem span={12}>{podsCard()}</GridItem>
         </Grid>

@@ -12,6 +12,7 @@ import {
 } from '@patternfly/react-core';
 import { routes, IAppRoute, IAppRouteGroup } from '@app/routes';
 import logo from '@app/bgimages/1.png';
+import '@patternfly/react-styles/css/utilities/Spacing/spacing.css';
 
 interface IAppLayout {
   children: React.ReactNode;
