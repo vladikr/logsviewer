@@ -616,6 +616,27 @@ func (c *app) getSinglePodQueryParams(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *app) getResourceStats(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get Resource Stats Endpoint Hit: ", r.URL.Query())
+
+	data, err := c.storeDB.GetResourceStats()
+	if err != nil {
+		log.Log.Println("failed to fetch resource stats", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("data", data)
+
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err1 := enc.Encode(data); err1 != nil {
+		fmt.Println(err1.Error())
+	}
+}
+
 func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("File Upload Endpoint Hit")
 	log.Log.Println("File Upload Endpoint Hit")
@@ -788,6 +809,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getSinglePodQueryParams", app.getSinglePodQueryParams)
 	mux.HandleFunc("/getPodYaml", app.getPodYaml)
 	mux.HandleFunc("/getObjYaml", app.getObjYaml)
+	mux.HandleFunc("/getResourceStats", app.getResourceStats)
 
 	mux.Handle("/metrics", promhttp.Handler())
 
