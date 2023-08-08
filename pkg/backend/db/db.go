@@ -18,6 +18,38 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+func (d *DatabaseInstance) StoreSubscription(sub *Subscription) error {
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	stmt, err := d.db.PrepareContext(ctx, insertSubscriptionQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	madeAt := sub.CreationTime.Format("2006-01-02 15:04:05.999999")
+
+	_, err = stmt.ExecContext(
+		ctx,
+		sub.Name,
+		sub.Namespace,
+		sub.UUID,
+		sub.Source,
+		sub.SourceNamespace,
+		sub.StartingCSV,
+		sub.CurrentCSV,
+		sub.InstalledCSV,
+		sub.State,
+		madeAt,
+		sub.Content,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (d *DatabaseInstance) StorePVC(pvc *PersistentVolumeClaim) error {
 	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
 	defer cancel()
@@ -208,6 +240,7 @@ var (
 	insertVmiMigrationQuery = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
 	insertNodeQuery         = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
 	insertPVCQuery          = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertSubscriptionQuery = `INSERT INTO subscriptions(name, namespace, uuid, source, sourceNamespace, startingCSV, currentCSV, installedCSV, state, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 )
 
 var (
@@ -304,6 +337,9 @@ func (d *DatabaseInstance) createTables() error {
 		return err
 	}
 	if err := d.createPVCsTable(); err != nil {
+		return err
+	}
+	if err := d.createSubscriptionsTable(); err != nil {
 		return err
 	}
 	return nil
@@ -433,6 +469,31 @@ func (d *DatabaseInstance) createPVCsTable() error {
 	);
 	`
 	err := d.execTable(createPVCsTable)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DatabaseInstance) createSubscriptionsTable() error {
+	createSubscriptionsTable := `
+	CREATE TABLE IF NOT EXISTS subscriptions (
+	  name varchar(100),
+	  namespace varchar(100),
+	  uuid varchar(100),
+	  source varchar(100),
+	  sourceNamespace varchar(100),
+	  startingCSV varchar(100),
+	  currentCSV varchar(100),
+	  installedCSV varchar(100),
+	  state varchar(100),
+	  creationTime datetime,
+	  content json,
+	  PRIMARY KEY (uuid)
+	);
+	`
+	err := d.execTable(createSubscriptionsTable)
 	if err != nil {
 		return err
 	}
@@ -1190,4 +1251,13 @@ func (d *DatabaseInstance) getSingleMigrationByUUID(uuid string) (*VirtualMachin
 	vmim.EndTimestamp = endTimePtr
 	log.Log.Println("SingleMigrationByUUID: ", vmim)
 	return &vmim, nil
+}
+
+func (d *DatabaseInstance) GetSubscriptions(page int, perPage int) (map[string]interface{}, error) {
+	queryString := "SELECT name, namespace, uuid, source, sourceNamespace, startingCSV, currentCSV, installedCSV, state, creationTime, content from subscriptions"
+	resultsMap, err := d.genericGet(queryString, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+	return resultsMap, nil
 }

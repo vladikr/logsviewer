@@ -402,6 +402,45 @@ func (c *app) getPVCs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *app) getSubscriptions(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get Subscriptions Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+		params[k] = v[0]
+	}
+
+	currentPage := 1
+
+	page, err := strconv.Atoi(fmt.Sprint(params["page"]))
+	if err == nil {
+		if page >= 1 {
+			currentPage = page
+		}
+	}
+
+	pageSize := -1
+	perPage, err := strconv.Atoi(fmt.Sprint(params["per_page"]))
+	if err == nil {
+		if perPage >= 1 {
+			pageSize = perPage
+		}
+	}
+
+	data, err := c.storeDB.GetSubscriptions(currentPage, pageSize)
+	if err != nil {
+		log.Log.Println("failed to get subscriptions!", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err1 := enc.Encode(data); err1 != nil {
+		fmt.Println(err1.Error())
+	}
+}
+
 func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get VMI Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -722,6 +761,10 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if err := logsHandler.processSubscriptionsYAMLs(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -810,6 +853,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getPodYaml", app.getPodYaml)
 	mux.HandleFunc("/getObjYaml", app.getObjYaml)
 	mux.HandleFunc("/getResourceStats", app.getResourceStats)
+	mux.HandleFunc("/getSubscriptions", app.getSubscriptions)
 
 	mux.Handle("/metrics", promhttp.Handler())
 
