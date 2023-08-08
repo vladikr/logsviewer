@@ -10,7 +10,7 @@ import {
   CardBody,
   Button,
   List,
-  ListItem, Page, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans,
+  ListItem, Page, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans, Tooltip,
 } from "@patternfly/react-core";
 import {apiBaseUrl} from "@app/config";
 import {CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon} from "@patternfly/react-icons";
@@ -45,14 +45,14 @@ const Dashboard: React.FunctionComponent = () => {
   const [nodes, setNodes] = React.useState<data | undefined>(undefined);
   const [vmis, setVmis] = React.useState<data | undefined>(undefined);
   const [pods, setPods] = React.useState<data | undefined>(undefined);
-  const [pvcs, setPvcs] = React.useState<data | undefined>(undefined);
+  const [subscriptions, setSubscriptions] = React.useState<data | undefined>(undefined);
 
   React.useEffect(() => {
     fetch("/getResourceStats", setResourceCount)
     fetch("/nodes", setNodes)
     fetch("/vmis", setVmis)
     fetch("/pods", setPods)
-    fetch("/getPVCs", setPvcs)
+    fetch("/getSubscriptions", setSubscriptions)
   }, []);
 
   const fetch = (path, callback) => {
@@ -71,8 +71,6 @@ const Dashboard: React.FunctionComponent = () => {
     }
 
     const gridSpan: gridSpans | undefined = 12-((counts.slice(1).filter((count) => count > 0).length) * 2) as gridSpans
-
-    console.log(gridSpan)
 
     return <Grid hasGutter>
       <GridItem span={gridSpan}>{counts[0]} {title}</GridItem>
@@ -218,6 +216,9 @@ const Dashboard: React.FunctionComponent = () => {
             ) : (
               <List isPlain>
                 {
+                  nodes.data.length === 0 ? (
+                    <ListItem>No nodes found</ListItem>
+                  ) :
                   nodes.data.slice(0, 5).map((node) => {
                     return (
                       <ListItem key={node.systemUuid}>
@@ -258,6 +259,9 @@ const Dashboard: React.FunctionComponent = () => {
             ) : (
               <List isPlain>
                 {
+                  vmis.data.length === 0 ? (
+                    <ListItem>No VMIs found</ListItem>
+                  ) :
                   vmis.data.slice(0, 5).map((vmi) => {
                     return (
                       <ListItem key={vmi.uuid}>
@@ -297,6 +301,9 @@ const Dashboard: React.FunctionComponent = () => {
             ) : (
               <List isPlain>
                 {
+                  pods.data.length === 0 ? (
+                    <ListItem>No pods found</ListItem>
+                  ) :
                   pods.data.slice(0, 5).map((pod) => {
                     return (
                       <ListItem key={pod.uuid}>
@@ -323,7 +330,58 @@ const Dashboard: React.FunctionComponent = () => {
     )
   }
 
-  console.log(resourceCount)
+  const subscriptionsCard = () => {
+    return (
+      <Card>
+        <CardTitle>Installed Operators</CardTitle>
+        <CardBody>
+          {
+            subscriptions === undefined ? (
+              <Bullseye>
+                <Spinner aria-label="Loading data" />
+              </Bullseye>
+            ) : (
+              <List isPlain>
+                {
+                  subscriptions.data.length === 0 ? (
+                    <ListItem>No operators installed</ListItem>
+                  ) :
+                  subscriptions.data.slice(0, 5).map((subscription) => {
+                    return (
+                      <ListItem key={subscription.uuid}>
+                        <Tooltip
+                          content={
+                            <div>
+                              <p>installed CSV: {subscription.installedCSV}</p>
+                              <p>source: {subscription.sourceNamespace}/{subscription.source}</p>
+                            </div>
+                          }
+                        >
+                          <div>
+                            <Chip isReadOnly
+                                  style={{
+                                    marginRight: "5px",
+                                  }}
+                            >{subscription.state}</Chip>
+                            {subscription.namespace}/{subscription.name}
+                          </div>
+                        </Tooltip>
+                      </ListItem>
+                    )
+                  })
+                }
+              </List>
+            )
+          }
+        </CardBody>
+        <CardFooter>
+          <Button variant="link" isInline component="a" href="/subscriptions">
+            View more
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
 
   return (
     <Page isManagedSidebar>
@@ -335,10 +393,16 @@ const Dashboard: React.FunctionComponent = () => {
 
       <PageSection>
         <Grid hasGutter>
-          <GridItem span={6} style={{ height: "100%" }}>{clusterInventoryCard()}</GridItem>
-          <GridItem span={6}>{nodesStatusCard()}</GridItem>
+          {/* line 1 */}
+          <GridItem span={6}>{clusterInventoryCard()}</GridItem>
+          <GridItem span={6}>{subscriptionsCard()}</GridItem>
+
+          {/* line 2 */}
           <GridItem span={12}>{virtualMachineInstancesCard()}</GridItem>
-          <GridItem span={12}>{podsCard()}</GridItem>
+
+          {/* line 3 */}
+          <GridItem span={6}>{podsCard()}</GridItem>
+          <GridItem span={6}>{nodesStatusCard()}</GridItem>
         </Grid>
       </PageSection>
     </Page>
