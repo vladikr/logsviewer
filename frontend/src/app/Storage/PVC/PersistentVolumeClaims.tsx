@@ -24,16 +24,26 @@ import {
 } from "@patternfly/react-core";
 import { PVCTabs } from '@app/Storage/PVC/PVCTabs';
 import { apiBaseUrl } from "@app/config";
+import {useLocation} from "react-router-dom";
+import * as queryString from "querystring";
 
 const PersistentVolumeClaims: React.FunctionComponent = () => {
+  const { search } = useLocation()
+  const queryStringValues = queryString.parse(search.slice(1))
 
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
   	React.useEffect(() => {
+      let url = apiBaseUrl + "/getPVCs"
+
+      if (queryStringValues.status !== undefined) {
+        url = url + "?status=" + queryStringValues.status
+      }
+
     	async function getData() {
       	await axios
-        	.get(apiBaseUrl + "/getPVCs")
+        	.get(url)
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);
