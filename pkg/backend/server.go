@@ -128,6 +128,9 @@ func (c *app) getPods(w http.ResponseWriter, r *http.Request) {
 	if podUUID, exist := params["uuid"]; exist {
 		json.Unmarshal([]byte(fmt.Sprint(podUUID)), &queryDetails)
 	}
+	if status, exist := params["status"]; exist {
+		queryDetails.Status = fmt.Sprint(status)
+	}
 
 	currentPage := 1
 
@@ -190,7 +193,12 @@ func (c *app) getNodes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data, err := c.storeDB.GetNodes(currentPage, pageSize)
+	queryDetails := db.GenericQueryDetails{}
+	if status, exist := params["status"]; exist {
+		queryDetails.Status = fmt.Sprint(status)
+	}
+
+	data, err := c.storeDB.GetNodes(currentPage, pageSize, &queryDetails)
 	if err != nil {
 		log.Log.Println("failed to get nodes!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -229,7 +237,12 @@ func (c *app) getVmis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data, err := c.storeDB.GetVmis(currentPage, pageSize)
+	queryDetails := db.GenericQueryDetails{}
+	if status, exist := params["status"]; exist {
+		queryDetails.Status = fmt.Sprint(status)
+	}
+
+	data, err := c.storeDB.GetVmis(currentPage, pageSize, &queryDetails)
 	if err != nil {
 		log.Log.Println("failed to get pods!", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -250,6 +263,7 @@ func (c *app) getVmiMigrations(w http.ResponseWriter, r *http.Request) {
 	for k, v := range r.URL.Query() {
 		params[k] = v[0]
 	}
+
 	vmiDetails := db.GenericQueryDetails{}
 	if vmiName, exist := params["name"]; exist {
 		log.Log.Println("vmiName: ", vmiName)
@@ -260,6 +274,9 @@ func (c *app) getVmiMigrations(w http.ResponseWriter, r *http.Request) {
 		log.Log.Println("Namespace: ", vmiNamespace)
 		json.Unmarshal([]byte(fmt.Sprint(vmiNamespace)), &vmiDetails)
 		log.Log.Println("vmiDetails: ", vmiDetails)
+	}
+	if status, exist := params["status"]; exist {
+		vmiDetails.Status = fmt.Sprint(status)
 	}
 
 	currentPage := 1
@@ -368,6 +385,9 @@ func (c *app) getPVCs(w http.ResponseWriter, r *http.Request) {
 	}
 	if pvcUUID, exist := params["uuid"]; exist {
 		json.Unmarshal([]byte(fmt.Sprint(pvcUUID)), &queryDetails)
+	}
+	if status, exist := params["status"]; exist {
+		queryDetails.Status = fmt.Sprint(status)
 	}
 
 	currentPage := 1

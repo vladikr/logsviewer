@@ -816,6 +816,18 @@ func (d *DatabaseInstance) GetPods(page int, perPage int, queryDetails *GenericQ
 		if queryDetails.UUID != "" {
 			conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
 		}
+		if queryDetails.Status != "" {
+			if queryDetails.Status == "healthy" {
+				// Running or Succeeded
+				conditions = append(conditions, fmt.Sprintf("phase='Running' OR phase='Succeeded'"))
+			} else if queryDetails.Status == "unhealthy" {
+				// Failed
+				conditions = append(conditions, fmt.Sprintf("phase='Failed'"))
+			} else if queryDetails.Status == "warning" {
+				// other thank Running, Succeeded, Failed
+				conditions = append(conditions, fmt.Sprintf("phase!='Running' AND phase!='Succeeded' AND phase!='Failed'"))
+			}
+		}
 
 		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
 	}
@@ -919,6 +931,18 @@ func (d *DatabaseInstance) GetPVCs(page int, perPage int, queryDetails *GenericQ
 		}
 		if queryDetails.UUID != "" {
 			conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+		}
+		if queryDetails.Status != "" {
+			if queryDetails.Status == "healthy" {
+				// Bound
+				conditions = append(conditions, fmt.Sprintf("phase='Bound'"))
+			} else if queryDetails.Status == "unhealthy" {
+				// Lost
+				conditions = append(conditions, fmt.Sprintf("phase='Lost'"))
+			} else if queryDetails.Status == "warning" {
+				// other thank Bound, Lost
+				conditions = append(conditions, fmt.Sprintf("phase!='Bound' AND phase!='Lost'"))
+			}
 		}
 
 		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
@@ -1055,8 +1079,35 @@ func (d *DatabaseInstance) GetPodObject(podUUID string) (*k8sv1.Pod, error) {
 
 }
 
-func (d *DatabaseInstance) GetNodes(page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetNodes(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
 	queryString := "select name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion from nodes"
+
+	if queryDetails != nil {
+		conditions := []string{}
+		if *queryDetails != (GenericQueryDetails{}) {
+			queryString = fmt.Sprintf("%s where ", queryString)
+		}
+
+		if queryDetails.Name != "" {
+			conditions = append(conditions, fmt.Sprintf("name='%s'", queryDetails.Name))
+		}
+		if queryDetails.Namespace != "" {
+			conditions = append(conditions, fmt.Sprintf("namespace='%s'", queryDetails.Namespace))
+		}
+		if queryDetails.UUID != "" {
+			conditions = append(conditions, fmt.Sprintf("uuid='%s'", queryDetails.UUID))
+		}
+		if queryDetails.Status != "" {
+			if queryDetails.Status == "healthy" {
+				conditions = append(conditions, fmt.Sprintf("status='%s'", "Ready"))
+			} else if queryDetails.Status == "unhealthy" {
+				conditions = append(conditions, fmt.Sprintf("status='%s'", "NotReady"))
+			}
+		}
+
+		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+	}
+
 	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
@@ -1064,8 +1115,31 @@ func (d *DatabaseInstance) GetNodes(page int, perPage int) (map[string]interface
 	return resultsMap, nil
 }
 
-func (d *DatabaseInstance) GetVmis(page int, perPage int) (map[string]interface{}, error) {
+func (d *DatabaseInstance) GetVmis(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
 	queryString := "select uuid, name, namespace, phase, reason, nodeName, creationTime from vmis"
+
+	if queryDetails != nil {
+		conditions := []string{}
+		if *queryDetails != (GenericQueryDetails{}) {
+			queryString = fmt.Sprintf("%s where ", queryString)
+		}
+
+		if queryDetails.Status != "" {
+			if queryDetails.Status == "healthy" {
+				// Running or Succeeded
+				conditions = append(conditions, fmt.Sprintf("phase='%s' OR phase='%s'", "Running", "Succeeded"))
+			} else if queryDetails.Status == "unhealthy" {
+				// Failed
+				conditions = append(conditions, fmt.Sprintf("phase='%s'", "Failed"))
+			} else if queryDetails.Status == "warning" {
+				// Other than Running, Succeeded, Failed
+				conditions = append(conditions, fmt.Sprintf("phase!='%s' AND phase!='%s' AND phase!='%s'", "Running", "Succeeded", "Failed"))
+			}
+		}
+
+		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+	}
+
 	resultsMap, err := d.genericGet(queryString, page, perPage)
 	if err != nil {
 		return nil, err
@@ -1092,6 +1166,18 @@ func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *G
 		if vmiDetails.UUID != "" {
 			conditions = append(conditions, fmt.Sprintf("uuid='%s'", vmiDetails.UUID))
 		}
+		if vmiDetails.Status != "" {
+			if vmiDetails.Status == "healthy" {
+				// Running or Succeeded
+				conditions = append(conditions, fmt.Sprintf("phase='%s' OR phase='%s'", "Running", "Succeeded"))
+			} else if vmiDetails.Status == "unhealthy" {
+				// Failed
+				conditions = append(conditions, fmt.Sprintf("phase='%s'", "Failed"))
+			} else if vmiDetails.Status == "warning" {
+				// Other than Running, Succeeded, Failed
+				conditions = append(conditions, fmt.Sprintf("phase!='%s' AND phase!='%s' AND phase!='%s'", "Running", "Succeeded", "Failed"))
+			}
+		}
 
 		queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
 	}
@@ -1114,6 +1200,7 @@ func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int)
 		limit = " limit " + strconv.Itoa((page-1)*perPage) + ", " + strconv.Itoa(perPage)
 	}
 
+	log.Log.Println("queryString: ", queryString+limit)
 	stmt, err := d.db.PrepareContext(ctx, queryString+limit)
 	if err != nil {
 		return response, err
