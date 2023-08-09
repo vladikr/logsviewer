@@ -123,5 +123,6 @@ type (
 		Name      string
 		Namespace string
 		Yaml      bool
+		Status    string
 	}
 )
