@@ -23,20 +23,31 @@ import {
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
 import { apiBaseUrl } from "@app/config";
+import * as queryString from "querystring";
+import {useLocation} from "react-router-dom";
 
 interface VmiMigrationsTableProps {
     namespace?: string,
     name?: string
 }
 
-const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, namespace}: VmiMigrationsTableProps) => { 
-	const [loadingData, setLoadingData] = React.useState(true);
+const Migrations: React.FunctionComponent<VmiMigrationsTableProps> = ({name, namespace}: VmiMigrationsTableProps) => {
+  const { search } = useLocation()
+  const queryStringValues = queryString.parse(search.slice(1))
+
+  const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
   	React.useEffect(() => {
+      let url = apiBaseUrl + "/vmims";
+
+      if (queryStringValues.status !== undefined) {
+        url = url + "?status=" + queryStringValues.status
+      }
+
     	async function getData() {
       	await axios
-        	.get(apiBaseUrl + "/vmims",
+        	.get(url,
             {
                 params: {
                     name: {name},

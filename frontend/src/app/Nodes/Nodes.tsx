@@ -24,16 +24,26 @@ import {
 } from "@patternfly/react-core";
 import { NodeTabs } from '@app/Nodes/NodeTabs';
 import { apiBaseUrl } from "@app/config";
+import {useLocation} from "react-router-dom";
+import * as queryString from "querystring";
 
 const Nodes: React.FunctionComponent = () => {
+  const { search } = useLocation()
+  const queryStringValues = queryString.parse(search.slice(1))
 
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
   	React.useEffect(() => {
     	async function getData() {
+        let url = apiBaseUrl + "/nodes"
+
+        if (queryStringValues.status !== undefined) {
+          url = url + "?status=" + queryStringValues.status
+        }
+
       	await axios
-        	.get(apiBaseUrl + "/nodes")
+        	.get(url)
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);

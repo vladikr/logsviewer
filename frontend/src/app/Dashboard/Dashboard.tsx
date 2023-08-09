@@ -64,7 +64,7 @@ const Dashboard: React.FunctionComponent = () => {
       });
   }
 
-  const gridItems = (title, counts) => {
+  const gridItems = (title, link, counts) => {
     const style = {
       marginLeft: "auto",
       marginRight: "5px",
@@ -73,32 +73,38 @@ const Dashboard: React.FunctionComponent = () => {
     const gridSpan: gridSpans | undefined = 12-((counts.slice(1).filter((count) => count > 0).length) * 2) as gridSpans
 
     return <Grid hasGutter>
-      <GridItem span={gridSpan}>{counts[0]} {title}</GridItem>
+      <GridItem span={gridSpan}><a href={link}>{counts[0]} {title}</a></GridItem>
       {
         counts.length > 1 && counts[1] > 0 &&
           <GridItem span={2} style={style}>
-            {counts[1]}
-              <Icon status="success" className="pf-u-ml-xs">
-                  <CheckCircleIcon />
-              </Icon>
+            <a href={link+"?status=healthy"}>
+              {counts[1]}
+                <Icon status="success" className="pf-u-ml-xs">
+                    <CheckCircleIcon />
+                </Icon>
+            </a>
           </GridItem>
       }
       {
         counts.length > 2 && counts[2] > 0 &&
           <GridItem span={2} style={style}>
-            {counts[2]}
+            <a href={link+"?status=unhealthy"}>
+              {counts[2]}
               <Icon status="danger" className="pf-u-ml-xs">
                   <ExclamationCircleIcon />
               </Icon>
+            </a>
           </GridItem>
       }
       {
         counts.length > 3 && counts[3] > 0 &&
           <GridItem span={2} style={style}>
-            {counts[3]}
+            <a href={link+"?status=warning"}>
+              {counts[3]}
               <Icon status="warning" className="pf-u-ml-xs">
                 <ExclamationTriangleIcon />
               </Icon>
+            </a>
           </GridItem>
       }
     </Grid>
@@ -163,27 +169,27 @@ const Dashboard: React.FunctionComponent = () => {
     }
 
     const nodesGrid = gridItems(
-      "Nodes",
+      "Nodes", "/nodes",
       [nodesCount, readyNodesCount, notReadyNodesCount],
     );
 
     const vmisGrid = gridItems(
-      "VMIs",
+      "VMIs", "/workloads/virtualmachineinstances",
       [vmisCount, healthyVmisCount, failedVmisCount, otherVmisCount],
     );
 
     const vmimsGrid = gridItems(
-      "VMI Migrations",
+      "VMI Migrations", "/workloads/migrations",
       [vmimsCount, healthyVmimsCount, failedVmimsCount, otherVmimsCount],
     );
 
     const podsGrid = gridItems(
-      "Pods",
+      "Pods", "/workloads/pods",
       [podsCount, healthyPodsCount, failedPodsCount, otherPodsCount],
     );
 
     const pvcsGrid = gridItems(
-      "PVCs",
+      "PVCs", "/storage/pvcs",
       [pvcsCount, healthyPvcsCount, failedPvcsCount, otherPvcsCount],
     );
 
@@ -192,11 +198,11 @@ const Dashboard: React.FunctionComponent = () => {
         <CardTitle>Cluster inventory</CardTitle>
         <CardBody>
           <List isPlain isBordered>
-            <ListItem><a href="/nodes">{nodesGrid}</a></ListItem>
-            <ListItem><a href="/workloads/virtualmachineinstances">{vmisGrid}</a></ListItem>
-            <ListItem><a href="/workloads/migrations">{vmimsGrid}</a></ListItem>
-            <ListItem><a href="/workloads/pods">{podsGrid}</a></ListItem>
-            <ListItem><a href="/storage/pvcs">{pvcsGrid}</a></ListItem>
+            <ListItem>{nodesGrid}</ListItem>
+            <ListItem>{vmisGrid}</ListItem>
+            <ListItem>{vmimsGrid}</ListItem>
+            <ListItem>{podsGrid}</ListItem>
+            <ListItem>{pvcsGrid}</ListItem>
           </List>
         </CardBody>
       </Card>

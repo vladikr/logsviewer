@@ -25,6 +25,8 @@ import {
   Bullseye, EmptyState, EmptyStateIcon, Spinner, Title,
 } from "@patternfly/react-core";
 import { apiBaseUrl } from "@app/config";
+import * as queryString from "querystring";
+import {useLocation} from "react-router-dom";
 
 const VirtualMachineInstances: React.FunctionComponent = () => {
     type Vmi = {
@@ -40,13 +42,23 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
         noPadding?: boolean;
     };
 
+  const { search } = useLocation()
+  const queryStringValues = queryString.parse(search.slice(1))
+
 	const [loadingData, setLoadingData] = React.useState(true);
   	const [data, setData] = React.useState<any[]>([]);
 
   	React.useEffect(() => {
+      console.log(queryStringValues);
+      let url = apiBaseUrl + "/vmis";
+
+      if (queryStringValues.status !== undefined) {
+        url = url + "?status=" + queryStringValues.status
+      }
+
     	async function getData() {
       	await axios
-        	.get(apiBaseUrl + "/vmis")
+        	.get(url)
         	.then((response) => {
           	// check if the data is populated
           	console.log(response.data);
