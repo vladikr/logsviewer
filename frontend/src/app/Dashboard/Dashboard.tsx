@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
   PageSection,
@@ -73,38 +74,38 @@ const Dashboard: React.FunctionComponent = () => {
     const gridSpan: gridSpans | undefined = 12-((counts.slice(1).filter((count) => count > 0).length) * 2) as gridSpans
 
     return <Grid hasGutter>
-      <GridItem span={gridSpan}><a href={link}>{counts[0]} {title}</a></GridItem>
+      <GridItem span={gridSpan}><Link to={link}>{counts[0]} {title}</Link></GridItem>
       {
         counts.length > 1 && counts[1] > 0 &&
           <GridItem span={2} style={style}>
-            <a href={link+"?status=healthy"}>
+            <Link to={link+"?status=healthy"}>
               {counts[1]}
                 <Icon status="success" className="pf-u-ml-xs">
                     <CheckCircleIcon />
                 </Icon>
-            </a>
+            </Link>
           </GridItem>
       }
       {
         counts.length > 2 && counts[2] > 0 &&
           <GridItem span={2} style={style}>
-            <a href={link+"?status=unhealthy"}>
+            <Link to={link+"?status=unhealthy"}>
               {counts[2]}
               <Icon status="danger" className="pf-u-ml-xs">
                   <ExclamationCircleIcon />
               </Icon>
-            </a>
+            </Link>
           </GridItem>
       }
       {
         counts.length > 3 && counts[3] > 0 &&
           <GridItem span={2} style={style}>
-            <a href={link+"?status=warning"}>
+            <Link to={link+"?status=warning"}>
               {counts[3]}
               <Icon status="warning" className="pf-u-ml-xs">
                 <ExclamationTriangleIcon />
               </Icon>
-            </a>
+            </Link>
           </GridItem>
       }
     </Grid>
@@ -244,9 +245,11 @@ const Dashboard: React.FunctionComponent = () => {
           }
         </CardBody>
         <CardFooter>
-          <Button variant="link" isInline component="a" href="/nodes">
-            View more
-          </Button>
+          <Link to="/nodes">
+            <Button variant="link" isInline component="a">
+              View more
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     )
@@ -286,9 +289,11 @@ const Dashboard: React.FunctionComponent = () => {
           }
         </CardBody>
         <CardFooter>
-          <Button variant="link" isInline component="a" href="/workloads/virtualmachineinstances">
-            View more
-          </Button>
+          <Link to="/workloads/virtualmachineinstances">
+            <Button variant="link" isInline component="a">
+              View more
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     )
@@ -328,9 +333,11 @@ const Dashboard: React.FunctionComponent = () => {
           }
         </CardBody>
         <CardFooter>
-          <Button variant="link" isInline component="a" href="/workloads/pods">
-            View more
-          </Button>
+          <Link to="/workloads/pods">
+            <Button variant="link" isInline component="a">
+              View more
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     )
@@ -381,9 +388,11 @@ const Dashboard: React.FunctionComponent = () => {
           }
         </CardBody>
         <CardFooter>
-          <Button variant="link" isInline component="a" href="/subscriptions">
-            View more
-          </Button>
+          <Link to="/subscriptions">
+            <Button variant="link" isInline component="a">
+              View more
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     )
