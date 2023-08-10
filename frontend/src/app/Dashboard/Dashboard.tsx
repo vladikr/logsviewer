@@ -47,6 +47,7 @@ const Dashboard: React.FunctionComponent = () => {
   const [vmis, setVmis] = React.useState<data | undefined>(undefined);
   const [pods, setPods] = React.useState<data | undefined>(undefined);
   const [subscriptions, setSubscriptions] = React.useState<data | undefined>(undefined);
+  const [importedMustGathers, setImportedMustGathers] = React.useState<data | undefined>(undefined);
 
   React.useEffect(() => {
     fetch("/getResourceStats", setResourceCount)
@@ -54,6 +55,7 @@ const Dashboard: React.FunctionComponent = () => {
     fetch("/vmis", setVmis)
     fetch("/pods", setPods)
     fetch("/getSubscriptions", setSubscriptions)
+    fetch("/getImportedMustGathers", setImportedMustGathers)
   }, []);
 
   const fetch = (path, callback) => {
@@ -195,7 +197,7 @@ const Dashboard: React.FunctionComponent = () => {
     );
 
     return (
-      <Card>
+      <Card style={{ height: "100%" }}>
         <CardTitle>Cluster inventory</CardTitle>
         <CardBody>
           <List isPlain isBordered>
@@ -212,7 +214,7 @@ const Dashboard: React.FunctionComponent = () => {
 
   const nodesStatusCard = () => {
     return (
-      <Card>
+      <Card style={{ height: "100%" }}>
         <CardTitle>Nodes Status</CardTitle>
         <CardBody>
           {
@@ -257,7 +259,7 @@ const Dashboard: React.FunctionComponent = () => {
 
   const virtualMachineInstancesCard = () => {
     return (
-      <Card>
+      <Card style={{ height: "100%" }}>
         <CardTitle>VMIs</CardTitle>
         <CardBody>
           {
@@ -301,7 +303,7 @@ const Dashboard: React.FunctionComponent = () => {
 
   const podsCard = () => {
     return (
-      <Card>
+      <Card style={{ height: "100%" }}>
         <CardTitle>Pods</CardTitle>
         <CardBody>
           {
@@ -345,7 +347,7 @@ const Dashboard: React.FunctionComponent = () => {
 
   const subscriptionsCard = () => {
     return (
-      <Card>
+      <Card style={{ height: "100%" }}>
         <CardTitle>Installed Operators</CardTitle>
         <CardBody>
           {
@@ -398,6 +400,40 @@ const Dashboard: React.FunctionComponent = () => {
     )
   }
 
+  const importedMustGathersCard = () => {
+    return (
+      <Card style={{ height: "100%" }}>
+        <CardTitle>Imported Must-Gathers</CardTitle>
+        <CardBody>
+          {
+            importedMustGathers === undefined ? (
+              <Bullseye>
+                <Spinner aria-label="Loading data" />
+              </Bullseye>
+            ) : (
+              <List isPlain>
+                {
+                  importedMustGathers.data.length === 0 ? (
+                    <ListItem>No imported must-gathers found</ListItem>
+                  ) :
+                  importedMustGathers.data.map((mustGather) => {
+                    const date = new Date(mustGather.importTime);
+
+                    return (
+                      <ListItem key={mustGather.uuid}>
+                        {`[${date.toLocaleString()}] ${mustGather.name}`}
+                      </ListItem>
+                    )
+                  })
+                }
+              </List>
+            )
+          }
+        </CardBody>
+      </Card>
+    )
+  }
+
   return (
     <Page isManagedSidebar>
       <PageSection>
@@ -410,10 +446,11 @@ const Dashboard: React.FunctionComponent = () => {
         <Grid hasGutter>
           {/* line 1 */}
           <GridItem span={6}>{clusterInventoryCard()}</GridItem>
-          <GridItem span={6}>{subscriptionsCard()}</GridItem>
+          <GridItem span={6}>{importedMustGathersCard()}</GridItem>
 
           {/* line 2 */}
-          <GridItem span={12}>{virtualMachineInstancesCard()}</GridItem>
+          <GridItem span={6}>{subscriptionsCard()}</GridItem>
+          <GridItem span={6}>{virtualMachineInstancesCard()}</GridItem>
 
           {/* line 3 */}
           <GridItem span={6}>{podsCard()}</GridItem>
