@@ -234,13 +234,36 @@ func (d *DatabaseInstance) StoreVmiMigration(vmim *VirtualMachineInstanceMigrati
 	return nil
 }
 
+func (d *DatabaseInstance) StoreImportedMustGather(img *ImportedMustGather) error {
+	ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+	defer cancel()
+
+	stmt, err := d.db.PrepareContext(ctx, insertImportedMustGatherQuery)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(
+		ctx,
+		img.Name,
+		img.ImportTime.Format("2006-01-02 15:04:05.999999"),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 var (
-	insertPodQuery          = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
-	insertVmiQuery          = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
-	insertVmiMigrationQuery = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
-	insertNodeQuery         = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
-	insertPVCQuery          = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
-	insertSubscriptionQuery = `INSERT INTO subscriptions(name, namespace, uuid, source, sourceNamespace, startingCSV, currentCSV, installedCSV, state, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertPodQuery                = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+	insertVmiQuery                = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
+	insertNodeQuery               = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
+	insertPVCQuery                = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertSubscriptionQuery       = `INSERT INTO subscriptions(name, namespace, uuid, source, sourceNamespace, startingCSV, currentCSV, installedCSV, state, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
+	insertImportedMustGatherQuery = `INSERT INTO importedmustgathers(name, importTime) values (?, ?);`
 )
 
 var (
@@ -340,6 +363,9 @@ func (d *DatabaseInstance) createTables() error {
 		return err
 	}
 	if err := d.createSubscriptionsTable(); err != nil {
+		return err
+	}
+	if err := d.createImportedMustGathersTable(); err != nil {
 		return err
 	}
 	return nil
@@ -494,6 +520,23 @@ func (d *DatabaseInstance) createSubscriptionsTable() error {
 	);
 	`
 	err := d.execTable(createSubscriptionsTable)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DatabaseInstance) createImportedMustGathersTable() error {
+	createImportedMustGathersTable := `
+	CREATE TABLE IF NOT EXISTS importedmustgathers (
+	  name varchar(200),
+	  importTime datetime,
+	  id int(16) auto_increment, 
+	  PRIMARY KEY (id)
+	);
+	`
+	err := d.execTable(createImportedMustGathersTable)
 	if err != nil {
 		return err
 	}
@@ -1188,6 +1231,51 @@ func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *G
 		return nil, err
 	}
 	return resultsMap, nil
+}
+
+func (d *DatabaseInstance) ListImportedMustGather() (imgList []ImportedMustGather, err error) {
+	imgList = []ImportedMustGather{}
+
+	queryString := "select name, importTime from importedmustgathers"
+
+	rows, err := d.db.Query(queryString)
+	if err != nil {
+		log.Log.Fatalln("failed to query imported must gathers - ", err)
+		return
+	}
+
+	for rows.Next() {
+		img := ImportedMustGather{}
+		err = rows.Scan(&img.Name, &img.ImportTime)
+		if err != nil {
+			log.Log.Fatalln("failed to scan imported must gather - ", err)
+			return
+		}
+		imgList = append(imgList, img)
+	}
+	return
+}
+
+func (d *DatabaseInstance) GetImportedMustGather(name string) (img *ImportedMustGather, exists bool, err error) {
+	img = &ImportedMustGather{}
+
+	queryString := fmt.Sprintf("select name, importTime from importedmustgathers where name = '%s' limit 1", name)
+
+	rows := d.db.QueryRow(queryString)
+	err = rows.Scan(&img.Name, &img.ImportTime)
+	if err != nil {
+		exists = false
+		if err == sql.ErrNoRows {
+			log.Log.Println("No imported must gather found with name: ", name)
+			err = nil
+			return
+		} else {
+			log.Log.Fatalln("failed to query imported must gather - ", err)
+			return
+		}
+	}
+	exists = true
+	return
 }
 
 func (d *DatabaseInstance) genericGet(queryString string, page int, perPage int) (map[string]interface{}, error) {

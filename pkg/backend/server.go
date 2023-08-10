@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -461,6 +462,27 @@ func (c *app) getSubscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *app) getImportedMustGathers(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get Imported MustGathers Endpoint Hit: ", r.URL.Query())
+	data, err := c.storeDB.ListImportedMustGather()
+	if err != nil {
+		log.Log.Println("failed to get imported must gathers!", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
+	output := map[string]interface{}{
+		"data": data,
+	}
+	if err1 := enc.Encode(output); err1 != nil {
+		fmt.Println(err1.Error())
+	}
+}
+
 func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get VMI Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -744,14 +766,30 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("Successfully Uploaded File: ", handler.Filename)
 	log.Log.Println("Successfully Uploaded File: ", handler.Filename)
 	metrics.NewMustGatherUploaded()
-	w.Header().Set("Content-Type", "application/json;charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":     true,
-		"description": "Successfully Uploaded File",
+
+	_, exists, err := c.storeDB.GetImportedMustGather(handler.Filename)
+	if err != nil {
+		log.Log.Println("failed to fetch imported must gather", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		log.Log.Println("must gather already exists")
+		http.Error(w, "Must gather already exists", http.StatusConflict)
+		return
+	}
+
+	err = c.storeDB.StoreImportedMustGather(&db.ImportedMustGather{
+		Name:       handler.Filename,
+		ImportTime: time.Now(),
 	})
+	if err != nil {
+		log.Log.Println("failed to store imported must gather", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	mime := handler.Header.Get("Content-Type")
 	if mime == "application/gzip" || mime == "application/x-gzip" {
@@ -761,30 +799,36 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		logsHandler := NewLogsHandler(c.storeDB)
 		defer close(logsHandler.stopCh)
+		var errList []error
 		if err := logsHandler.processPodYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			errList = append(errList, err)
 		}
 		if err := logsHandler.processVirtualMachineInstanceMigrationsYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			errList = append(errList, err)
 		}
 		if err := logsHandler.processNodeYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			errList = append(errList, err)
 		}
 		if err := logsHandler.processVirtualMachineInstanceYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			errList = append(errList, err)
 		}
 		if err := logsHandler.processPersistentVolumeClaimYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			errList = append(errList, err)
 		}
 		if err := logsHandler.processSubscriptionsYAMLs(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errList = append(errList, err)
+		}
+
+		if len(errList) > 0 {
+			http.Error(w, fmt.Sprintf("failed to process YAMLs: %v", errList), http.StatusInternalServerError)
 			return
 		}
+
+		w.Header().Set("Content-Type", "application/json;charset=utf-8")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":     true,
+			"description": "Successfully Uploaded File",
+		})
 	}
 }
 
@@ -874,6 +918,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getObjYaml", app.getObjYaml)
 	mux.HandleFunc("/getResourceStats", app.getResourceStats)
 	mux.HandleFunc("/getSubscriptions", app.getSubscriptions)
+	mux.HandleFunc("/getImportedMustGathers", app.getImportedMustGathers)
 
 	mux.Handle("/metrics", promhttp.Handler())
 
