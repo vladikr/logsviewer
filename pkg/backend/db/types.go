@@ -103,6 +103,11 @@ type (
 		Content      json.RawMessage `json:"content"`
 	}
 
+	ImportedMustGather struct {
+		Name       string    `json:"name"`
+		ImportTime time.Time `json:"importTime"`
+	}
+
 	QueryResults struct {
 		Namespace      string
 		SourcePodUUID  string
