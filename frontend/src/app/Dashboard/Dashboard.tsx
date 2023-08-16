@@ -2,19 +2,18 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
-  PageSection,
   Bullseye,
   Spinner,
-  Title,
   Card,
   CardTitle,
   CardBody,
   Button,
   List,
-  ListItem, Page, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans, Tooltip,
+  ListItem, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans, Tooltip, Page, PageSection, Title,
 } from "@patternfly/react-core";
 import {apiBaseUrl} from "@app/config";
 import {CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon} from "@patternfly/react-icons";
+import {Table, TableHeader, TableBody, TableProps, TableVariant} from '@patternfly/react-table';
 
 type data = {
   meta: {
@@ -401,6 +400,32 @@ const Dashboard: React.FunctionComponent = () => {
   }
 
   const importedMustGathersCard = () => {
+    const columnNames = {
+      name: 'File name',
+      importTime: 'Import date',
+      gatherTime: 'Gather date',
+    };
+
+    const columns: TableProps['cells'] = ['File name', 'Gather date', 'Import date'];
+
+    let rows: TableProps['rows'] = [
+      ['Loading...', 'Loading...', 'Loading...'],
+    ];
+
+    if (importedMustGathers !== undefined) {
+      if (importedMustGathers.data.length === 0) {
+        rows = [
+          ['No must-gathers imported', '', ''],
+        ];
+      }
+
+      rows = importedMustGathers.data.map((mustGather) => [
+        mustGather.name,
+        new Date(mustGather.gatherTime).toLocaleString(),
+        new Date(mustGather.importTime).toLocaleString(),
+      ]);
+    }
+
     return (
       <Card style={{ height: "100%" }}>
         <CardTitle>Imported Must-Gathers</CardTitle>
@@ -411,22 +436,14 @@ const Dashboard: React.FunctionComponent = () => {
                 <Spinner aria-label="Loading data" />
               </Bullseye>
             ) : (
-              <List isPlain>
-                {
-                  importedMustGathers.data.length === 0 ? (
-                    <ListItem>No imported must-gathers found</ListItem>
-                  ) :
-                  importedMustGathers.data.map((mustGather) => {
-                    const date = new Date(mustGather.importTime);
-
-                    return (
-                      <ListItem key={mustGather.uuid}>
-                        {`[${date.toLocaleString()}] ${mustGather.name}`}
-                      </ListItem>
-                    )
-                  })
-                }
-              </List>
+              <Table
+                variant={TableVariant.compact}
+                cells={columns}
+                rows={rows}
+              >
+                <TableHeader />
+                <TableBody />
+              </Table>
             )
           }
         </CardBody>

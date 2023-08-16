@@ -2,16 +2,15 @@ package db
 
 import (
 	"fmt"
-	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
-
 	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	"logsviewer/pkg/backend/log"
@@ -123,6 +122,14 @@ func (d *ObjectStore) formatPodPVCs(pod *k8sv1.Pod) string {
 	}
 	pvcsStr := strings.Join(pvcs, ",")
 	return pvcsStr
+}
+
+func (d *ObjectStore) storeImportedMustGather(img *ImportedMustGather) error {
+	if err := d.storeDB.StoreImportedMustGather(img); err != nil {
+		log.Log.Println("failed to store obj  ", img, " err: ", err)
+		return err
+	}
+	return nil
 }
 
 func (d *ObjectStore) storePod(pod *k8sv1.Pod) error {
@@ -351,6 +358,11 @@ func (d *ObjectStore) storeSubscription(sub *v1alpha1.Subscription) error {
 func (d *ObjectStore) processObject(obj interface{}) {
 
 	switch obj.(type) {
+	case *ImportedMustGather:
+		img := obj.(*ImportedMustGather)
+		if err := d.storeImportedMustGather(img); err == nil {
+			log.Log.Println("stored obj  ", img)
+		}
 	case *k8sv1.Pod:
 		podObj := obj.(*k8sv1.Pod)
 		if err := d.storePod(podObj); err == nil {
@@ -400,6 +412,10 @@ func (d *ObjectStore) processObject(obj interface{}) {
 func (d *ObjectStore) Add(obj interface{}) {
 
 	switch v := obj.(type) {
+	case *ImportedMustGather:
+		imgObj := obj.(*ImportedMustGather)
+		d.wg.Add(1)
+		d.Queue.Add(imgObj)
 	case *k8sv1.Pod:
 		podObj := obj.(*k8sv1.Pod)
 		d.wg.Add(1)

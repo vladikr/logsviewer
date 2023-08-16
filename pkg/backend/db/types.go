@@ -106,6 +106,7 @@ type (
 	ImportedMustGather struct {
 		Name       string    `json:"name"`
 		ImportTime time.Time `json:"importTime"`
+		GatherTime time.Time `json:"gatherTime"`
 	}
 
 	QueryResults struct {

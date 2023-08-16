@@ -2,6 +2,7 @@ package backend
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -13,15 +14,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+	yamlv3 "gopkg.in/yaml.v3"
 	k8sv1 "k8s.io/api/core/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 
-	yamlv3 "gopkg.in/yaml.v3"
 	"logsviewer/pkg/backend/db"
 	"logsviewer/pkg/backend/log"
-	"sigs.k8s.io/yaml"
 )
 
 type Pods struct {
@@ -120,6 +122,35 @@ func unTarGz(srcFile string, targetPath string) error {
 			return err
 		}
 
+		log.Log.Println("Header name: ", header.Name)
+		if strings.HasSuffix(header.Name, "/timestamp") {
+			newTarget := filepath.Join(targetPath, header.Name)
+			err = os.MkdirAll(filepath.Dir(newTarget), os.ModePerm)
+			if err != nil {
+				log.Log.Fatalln("failed to create dir ", targetPath, " - ", err)
+				return err
+			}
+
+			log.Log.Println("newTarget: ", newTarget)
+			if _, err := os.Stat(newTarget); err == nil {
+				log.Log.Println("file already exist, skip")
+				continue
+			}
+
+			outFile, err := os.Create(newTarget)
+			if err != nil {
+				log.Log.Fatalln("failed create target ", newTarget, " - ", err)
+				return err
+			}
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				log.Log.Fatalln("failed to copy from src to target ", newTarget, " - ", err)
+				return err
+			}
+			log.Log.Println("created file: ", newTarget)
+			outFile.Close()
+			continue
+		}
+
 		// extract only the namespaces dir
 		if !strings.Contains(header.Name, "namespaces/") && !strings.Contains(header.Name, "cluster-scoped-resources/") {
 			continue
@@ -149,7 +180,7 @@ func unTarGz(srcFile string, targetPath string) error {
 				return err
 			}
 		case tar.TypeReg:
-			// if such file already exist, add/increse its version
+			// if such file already exist, add/increase its version
 			if _, err := os.Stat(newTarget); err == nil {
 
 				ext := filepath.Ext(newTarget)
@@ -321,6 +352,57 @@ func (l *logsHandler) storeNodeData(yamlFile []byte) error {
 
 	l.objectStore.Add(&node)
 	return nil
+}
+
+func (l *logsHandler) processImportedMustGather(filename string) error {
+	l.handlerLock.Lock()
+	defer l.handlerLock.Unlock()
+
+	gatherTime, err := getMustGatherTimestamp()
+	if err != nil {
+		return err
+	}
+
+	l.objectStore.Add(&db.ImportedMustGather{
+		Name:       filename,
+		ImportTime: time.Now(),
+		GatherTime: gatherTime,
+	})
+	return nil
+}
+
+func getMustGatherTimestamp() (time.Time, error) {
+	layouts, err := filepath.Glob("/space/**/timestamp")
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	for _, filename := range layouts {
+		timestampFile, err := os.Open(filename)
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		scanner := bufio.NewScanner(timestampFile)
+		scanner.Scan()
+		timestamp := scanner.Text()
+		timestampFile.Close()
+
+		return timestampStringToTime(timestamp)
+	}
+
+	return time.Time{}, fmt.Errorf("no timestamp file found")
+}
+
+func timestampStringToTime(timestamp string) (time.Time, error) {
+	const layout = "2006-01-02 15:04:05.999999999 -0700 MST m=+0.000000000"
+
+	t, err := time.Parse(layout, timestamp)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return t, nil
 }
 
 func (l *logsHandler) processPodYAMLs() error {
