@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sigs.k8s.io/yaml"
 	"strconv"
 
@@ -742,6 +743,17 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("MIME Header: %+v\n", handler.Header)
 
 	// TODO: make this path configurable
+	d, err := os.Open("/space")
+	if err == nil {
+		defer d.Close()
+		names, err := d.Readdirnames(-1)
+		if err == nil {
+			for _, name := range names {
+				_ = os.RemoveAll(filepath.Join("/space", name))
+			}
+		}
+	}
+
 	err = os.MkdirAll("/space", os.ModePerm)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

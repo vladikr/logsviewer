@@ -122,9 +122,8 @@ func unTarGz(srcFile string, targetPath string) error {
 			return err
 		}
 
-		log.Log.Println("Header name: ", header.Name)
 		if strings.HasSuffix(header.Name, "/timestamp") {
-			newTarget := filepath.Join(targetPath, header.Name)
+			newTarget := filepath.Join(targetPath, "timestamp")
 			err = os.MkdirAll(filepath.Dir(newTarget), os.ModePerm)
 			if err != nil {
 				log.Log.Fatalln("failed to create dir ", targetPath, " - ", err)
@@ -372,26 +371,17 @@ func (l *logsHandler) processImportedMustGather(filename string) error {
 }
 
 func getMustGatherTimestamp() (time.Time, error) {
-	layouts, err := filepath.Glob("/space/**/timestamp")
+	timestampFile, err := os.Open(fmt.Sprintf("/space/timestamp"))
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	for _, filename := range layouts {
-		timestampFile, err := os.Open(filename)
-		if err != nil {
-			return time.Time{}, err
-		}
+	scanner := bufio.NewScanner(timestampFile)
+	scanner.Scan()
+	timestamp := scanner.Text()
+	timestampFile.Close()
 
-		scanner := bufio.NewScanner(timestampFile)
-		scanner.Scan()
-		timestamp := scanner.Text()
-		timestampFile.Close()
-
-		return timestampStringToTime(timestamp)
-	}
-
-	return time.Time{}, fmt.Errorf("no timestamp file found")
+	return timestampStringToTime(timestamp)
 }
 
 func timestampStringToTime(timestamp string) (time.Time, error) {
