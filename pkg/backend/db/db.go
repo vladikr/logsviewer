@@ -248,6 +248,7 @@ func (d *DatabaseInstance) StoreImportedMustGather(img *ImportedMustGather) erro
 		ctx,
 		img.Name,
 		img.ImportTime.Format("2006-01-02 15:04:05.999999"),
+		img.GatherTime.Format("2006-01-02 15:04:05.999999"),
 	)
 	if err != nil {
 		return err
@@ -263,7 +264,7 @@ var (
 	insertNodeQuery               = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
 	insertPVCQuery                = `INSERT INTO pvcs(name, namespace, uuid, reason, phase, accessModes, storageClassName, volumeName, volumeMode, capacity, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
 	insertSubscriptionQuery       = `INSERT INTO subscriptions(name, namespace, uuid, source, sourceNamespace, startingCSV, currentCSV, installedCSV, state, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
-	insertImportedMustGatherQuery = `INSERT INTO importedmustgathers(name, importTime) values (?, ?);`
+	insertImportedMustGatherQuery = `INSERT INTO importedmustgathers(name, importTime, gatherTime) values (?, ?, ?);`
 )
 
 var (
@@ -532,6 +533,7 @@ func (d *DatabaseInstance) createImportedMustGathersTable() error {
 	CREATE TABLE IF NOT EXISTS importedmustgathers (
 	  name varchar(200),
 	  importTime datetime,
+	  gatherTime datetime,
 	  id int(16) auto_increment, 
 	  PRIMARY KEY (id)
 	);
@@ -1236,7 +1238,7 @@ func (d *DatabaseInstance) GetVmiMigrations(page int, perPage int, vmiDetails *G
 func (d *DatabaseInstance) ListImportedMustGather() (imgList []ImportedMustGather, err error) {
 	imgList = []ImportedMustGather{}
 
-	queryString := "select name, importTime from importedmustgathers"
+	queryString := "select name, importTime, gatherTime from importedmustgathers"
 
 	rows, err := d.db.Query(queryString)
 	if err != nil {
@@ -1246,7 +1248,7 @@ func (d *DatabaseInstance) ListImportedMustGather() (imgList []ImportedMustGathe
 
 	for rows.Next() {
 		img := ImportedMustGather{}
-		err = rows.Scan(&img.Name, &img.ImportTime)
+		err = rows.Scan(&img.Name, &img.ImportTime, &img.GatherTime)
 		if err != nil {
 			log.Log.Fatalln("failed to scan imported must gather - ", err)
 			return
@@ -1259,10 +1261,10 @@ func (d *DatabaseInstance) ListImportedMustGather() (imgList []ImportedMustGathe
 func (d *DatabaseInstance) GetImportedMustGather(name string) (img *ImportedMustGather, exists bool, err error) {
 	img = &ImportedMustGather{}
 
-	queryString := fmt.Sprintf("select name, importTime from importedmustgathers where name = '%s' limit 1", name)
+	queryString := fmt.Sprintf("select name, importTime, gatherTime from importedmustgathers where name = '%s' limit 1", name)
 
 	rows := d.db.QueryRow(queryString)
-	err = rows.Scan(&img.Name, &img.ImportTime)
+	err = rows.Scan(&img.Name, &img.ImportTime, &img.GatherTime)
 	if err != nil {
 		exists = false
 		if err == sql.ErrNoRows {

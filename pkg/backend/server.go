@@ -9,13 +9,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sigs.k8s.io/yaml"
 	"strconv"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
-	"sigs.k8s.io/yaml"
 
 	"logsviewer/pkg/backend/cleanup"
 	"logsviewer/pkg/backend/db"
@@ -781,16 +780,6 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = c.storeDB.StoreImportedMustGather(&db.ImportedMustGather{
-		Name:       handler.Filename,
-		ImportTime: time.Now(),
-	})
-	if err != nil {
-		log.Log.Println("failed to store imported must gather", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	mime := handler.Header.Get("Content-Type")
 	if mime == "application/gzip" || mime == "application/x-gzip" {
 		if err := handleTarGz(destinationFilePath, "/space"); err != nil {
@@ -800,6 +789,11 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 		logsHandler := NewLogsHandler(c.storeDB)
 		defer close(logsHandler.stopCh)
 		var errList []error
+		if err := logsHandler.processImportedMustGather(handler.Filename); err != nil {
+			log.Log.Println("failed to store imported must gather", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		if err := logsHandler.processPodYAMLs(); err != nil {
 			errList = append(errList, err)
 		}
