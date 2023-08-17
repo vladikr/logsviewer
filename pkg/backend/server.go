@@ -555,8 +555,7 @@ func (c *app) getVMIDetails(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	//resp := map[string]string{"dslQuery": dslQuery}
-	//log.Log.Println("getVMIQueryParams encoded: ", resp)
+
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	w.WriteHeader(200)
 	enc := json.NewEncoder(w)

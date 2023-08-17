@@ -3,6 +3,7 @@ import "@patternfly/react-core/dist/styles/base.css";
 import axios from 'axios';
 import { Migrations } from '@app/Workloads/Migrations/Migrations';
 import { PVCsTableMinimal } from '@app/Storage/PVC/PersistentVolumeClaimsMin';
+import { VMIDetailsMinimal } from '@app/Workloads/VirtualMachineInstances/VirtualMachineInstanceDetails';
 import { YAMLEditor } from "@app/Common/Editor"
 import {
   Tabs, Tab, TabTitleText,
@@ -25,9 +26,10 @@ interface VMITabsProps {
     namespace?: string,
     name?: string,
     uuid: string
+    nodeName?: string
 }
 
-const VirtualMachineInstancesTabs: React.FunctionComponent<VMITabsProps> = ({name, namespace, uuid}: VMITabsProps) => { 
+const VirtualMachineInstancesTabs: React.FunctionComponent<VMITabsProps> = ({name, namespace, uuid, nodeName}: VMITabsProps) => { 
 	const [loadingYamlData, setLoadingYamlData] = React.useState(true);
     const [activeTabKey, setActiveTabKey] = React.useState<string | number>(0);
   	const [data, setData] = React.useState("Empty");
@@ -91,6 +93,11 @@ const VirtualMachineInstancesTabs: React.FunctionComponent<VMITabsProps> = ({nam
             <Migrations name={name} namespace={namespace}/>
     )}
 
+    const renderVmiDetails = (uuid?: string, nodeName?: string) => {
+        return (
+            <VMIDetailsMinimal uuid={uuid} nodeName={nodeName} />
+    )}
+
 
 return (
     <div>
@@ -102,11 +109,12 @@ return (
         aria-label="Tabs in the page insets example"
         role="region"
       >
-            <Tab eventKey={0} title={<TabTitleText>YAML</TabTitleText>} aria-label="Pods Yaml" tabContentId={`tabContent${0}`} />
+            <Tab eventKey={0} title={<TabTitleText>Details</TabTitleText>} aria-label="Details" tabContentId={`tabContent${0}`} />
             <Tab eventKey={1} title={<TabTitleText>Migrations</TabTitleText>} aria-label="Migrations" tabContentId={`tabContent${1}`} />
             <Tab eventKey={2} title={<TabTitleText>Events</TabTitleText>} aria-label="Events" tabContentId={`tabContent${2}`} />
             <Tab eventKey={3} title={<TabTitleText>Storage</TabTitleText>} aria-label="Storage" tabContentId={`tabContent${3}`} />
             <Tab eventKey={4} title={<TabTitleText>Networking</TabTitleText>} aria-label="Networking" tabContentId={`tabContent${4}`} />
+            <Tab eventKey={5} title={<TabTitleText>YAML</TabTitleText>} aria-label="VMI Yaml" tabContentId={`tabContent${5}`} />
         </Tabs>
         <TabContent
           key={0}
@@ -118,7 +126,7 @@ return (
           <TabContentBody>
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
               <FlexItem>
-                { loadingYamlData || 0 !== activeTabKey ? (loadingElem()) : (renderEditor(data))}
+                { 0 !== activeTabKey ? (loadingElem()) : (renderVmiDetails(uuid, nodeName))}
               </FlexItem>
             </Flex>
           </TabContentBody>
@@ -169,6 +177,21 @@ return (
         >
           <TabContentBody>
               <div>TBD</div>
+          </TabContentBody>
+        </TabContent>
+        <TabContent
+          key={5}
+          eventKey={5}
+          id={`tabContent${5}`}
+          activeKey={activeTabKey}
+          hidden={5 !== activeTabKey}
+        >
+          <TabContentBody>
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+              <FlexItem>
+                { loadingYamlData || 5 !== activeTabKey ? (loadingElem()) : (renderEditor(data))}
+              </FlexItem>
+            </Flex>
           </TabContentBody>
         </TabContent>
     </div>

@@ -130,9 +130,6 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
             
             return retq
     }
-    //const openInNewTab = ({ row }: { row: Row<Vmi> }) => {
-    //    fetchDSLQuery(row.original.uuid, row.original.nodeName);
-    //}
 
   const renderPagination = (variant, isCompact) => (
     <Pagination
@@ -232,7 +229,7 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
     return (
     
     newDataRows.map((repo, rowIndex) => { 
-        repo.nestedComponent = <VirtualMachineInstancesTabs name={repo.name} namespace={repo.namespace} uuid={repo.uuid} />
+        repo.nestedComponent = <VirtualMachineInstancesTabs name={repo.name} namespace={repo.namespace} uuid={repo.uuid} nodeName={repo.nodeName} />
         return (
         <Tbody key={repo.name} isExpanded={isRepoExpanded(repo)}>
           <Tr>
