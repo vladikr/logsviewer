@@ -526,6 +526,48 @@ func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("getVMIQueryParams encoded: ", resp)
 }
 
+func (c *app) getVMIDetails(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get VMI Details Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+		params[k] = v[0]
+	}
+
+	vmiUUID, exist := params["uuid"]
+	if !exist {
+		log.Log.Println("can't find uuid in query params")
+		http.Error(w, "can't find uuid in query params", http.StatusInternalServerError)
+		return
+	}
+	nodeName, exist := params["nodeName"]
+	if !exist {
+		log.Log.Println("can't find nodeName in query params")
+		http.Error(w, "can't find nodeName in query params", http.StatusInternalServerError)
+		return
+	}
+
+	vmiUUIDStr := fmt.Sprintf("%s", vmiUUID)
+	nodeNameStr := fmt.Sprintf("%s", nodeName)
+
+	data, err := c.storeDB.GetVMIQueryParams(vmiUUIDStr, nodeNameStr)
+	if err != nil {
+		log.Log.Println("failed to fetch VMI params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//resp := map[string]string{"dslQuery": dslQuery}
+	//log.Log.Println("getVMIQueryParams encoded: ", resp)
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err1 := enc.Encode(data); err1 != nil {
+		log.Log.Println("getVMIDetails error: ", err1)
+		fmt.Println(err1.Error())
+	}
+	log.Log.Println("getVMIDetails encoded: ", data)
+}
+
 func (c *app) getMigrationQueryParams(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get Migration Query Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -925,6 +967,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getResourceStats", app.getResourceStats)
 	mux.HandleFunc("/getSubscriptions", app.getSubscriptions)
 	mux.HandleFunc("/getImportedMustGathers", app.getImportedMustGathers)
+	mux.HandleFunc("/getVMIDetails", app.getVMIDetails)
 
 	mux.Handle("/metrics", promhttp.Handler())
 
