@@ -102,9 +102,10 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
 
     const fetchDSLQuery = async (
 		vmiUUID: string,
-		nodeName: string
+		nodeName: string,
+        apiPath: string,
 	) => {
-        const retq = await axios.get(apiBaseUrl + "/getVMIQueryParams",
+        const retq = await axios.get(apiBaseUrl + "/" + apiPath,
             {
                 params: {
                     vmiUUID: vmiUUID,
@@ -182,15 +183,15 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
 
   const defaultActions = (repo: Vmi): IAction[] => [
     {
-      title: "Show Logs",
-      onClick: () => fetchDSLQuery(repo.uuid, repo.nodeName)
+      title: "Logs Since Creation",
+      onClick: () => fetchDSLQuery(repo.uuid, repo.nodeName, "getFullVMIHistoryQueryParams")
     },
     {
       isSeparator: true
     },
     {
-      title: "Show logs since...",
-      onClick: () => console.log(`Not Implemented yet for ${repo.name}`)
+      title: "Show Latest Logs",
+      onClick: () => fetchDSLQuery(repo.uuid, repo.nodeName, "getVMIQueryParams")
     }
   ];
   const tableToolbar = (
