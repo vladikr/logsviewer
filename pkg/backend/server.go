@@ -526,6 +526,42 @@ func (c *app) getVMIQueryParams(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("getVMIQueryParams encoded: ", resp)
 }
 
+func (c *app) getFullVMIHistoryQueryParams(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get VMI Full Query Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+		params[k] = v[0]
+	}
+
+	vmiUUID, exist := params["vmiUUID"]
+	if !exist {
+		log.Log.Println("can't find uuid in query params")
+		http.Error(w, "can't find uuid in query params", http.StatusInternalServerError)
+		return
+	}
+
+	vmiUUIDStr := fmt.Sprintf("%s", vmiUUID)
+
+	data, err := c.storeDB.GetFullVMIHistoryQueryParams(vmiUUIDStr)
+	if err != nil {
+		log.Log.Println("failed to fetch VMI params", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	dslQuery := formatFullVMIHistoryDSLQuery(data)
+	resp := map[string]string{"dslQuery": dslQuery}
+	log.Log.Println("getFullVMIHistoryQueryParams encoded: ", data)
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err1 := enc.Encode(resp); err1 != nil {
+		log.Log.Println("getVMIQueryParams error: ", err1)
+		fmt.Println(err1.Error())
+	}
+	log.Log.Println("getFullVMIHistoryQueryParams encoded: ", resp)
+}
+
 func (c *app) getVMIDetails(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get VMI Details Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -967,6 +1003,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/getSubscriptions", app.getSubscriptions)
 	mux.HandleFunc("/getImportedMustGathers", app.getImportedMustGathers)
 	mux.HandleFunc("/getVMIDetails", app.getVMIDetails)
+	mux.HandleFunc("/getFullVMIHistoryQueryParams", app.getFullVMIHistoryQueryParams)
 
 	mux.Handle("/metrics", promhttp.Handler())
 
