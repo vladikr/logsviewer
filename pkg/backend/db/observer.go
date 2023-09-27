@@ -213,6 +213,33 @@ func (d *ObjectStore) storeNode(node *k8sv1.Node) error {
 	return nil
 }
 
+func (d *ObjectStore) storeVm(vm *kubevirtv1.VirtualMachine) error {
+	jsonBytes, err := json.Marshal(vm)
+	if err != nil {
+		log.Log.Println("failed to marshal vm object ", vm, " err: ", err)
+	}
+
+	name := vm.GetObjectMeta().GetName()
+	namespace := vm.GetObjectMeta().GetNamespace()
+	uid := string(vm.GetObjectMeta().GetUID())
+    isRunning := vm.Spec.Running != nil && *vm.Spec.Running
+	storeObj := &VirtualMachine{
+		Name:         name,
+		Namespace:    namespace,
+		UUID:         uid,
+        Running:      isRunning,
+		Created:      vm.Status.Created,
+		Ready:        vm.Status.Ready,
+		Status:       string(vm.Status.PrintableStatus),
+		Content:      jsonBytes,
+	}
+	if err := d.storeDB.StoreVm(storeObj); err != nil {
+		log.Log.Println("failed to store vm obj  ", storeObj, " err: ", err)
+		return err
+	}
+	return nil
+}
+
 func (d *ObjectStore) storeVmi(vmi *kubevirtv1.VirtualMachineInstance) error {
 	jsonBytes, err := json.Marshal(vmi)
 	if err != nil {
@@ -373,6 +400,11 @@ func (d *ObjectStore) processObject(obj interface{}) {
 		if err := d.storeNode(nodeObj); err == nil {
 			log.Log.Println("stored obj  ", nodeObj)
 		}
+	case *kubevirtv1.VirtualMachine:
+		vm := obj.(*kubevirtv1.VirtualMachine)
+		if err := d.storeVm(vm); err == nil {
+			log.Log.Println("stored vm obj  ", vm)
+		}
 	case *kubevirtv1.VirtualMachineInstance:
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
 		if err := d.storeVmi(vmi); err == nil {
@@ -424,6 +456,10 @@ func (d *ObjectStore) Add(obj interface{}) {
 		nodeObj := obj.(*k8sv1.Node)
 		d.wg.Add(1)
 		d.Queue.Add(nodeObj)
+	case kubevirtv1.VirtualMachine:
+		vm := obj.(kubevirtv1.VirtualMachine)
+		d.wg.Add(1)
+		d.Queue.Add(&vm)
 	case *kubevirtv1.VirtualMachineInstance:
 		vmi := obj.(*kubevirtv1.VirtualMachineInstance)
 		d.wg.Add(1)

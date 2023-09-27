@@ -271,6 +271,20 @@ func (l *logsHandler) storePodData(yamlFile []byte) error {
 	return nil
 }
 
+// store single VM object from file
+func (l *logsHandler) storeVMData(yamlFile []byte) error {
+	vm := kubevirtv1.VirtualMachine{}
+
+	err := yaml.Unmarshal(yamlFile, &vm)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal vm yaml  - ", err)
+		return err
+	}
+
+	l.objectStore.Add(&vm)
+	return nil
+}
+
 func (l *logsHandler) storeVMIData(yamlFile []byte) error {
 	vmi := kubevirtv1.VirtualMachineInstance{}
 
@@ -430,6 +444,22 @@ func (l *logsHandler) processPodYAMLs() error {
 	return nil
 }
 
+// store multiple VM objects from a single file.
+func (l *logsHandler) storeVMListData(yamlFile []byte) error {
+	vmList := kubevirtv1.VirtualMachineList{}
+
+	err := yaml.Unmarshal(yamlFile, &vmList)
+	if err != nil {
+		log.Log.Fatalln("failed to unmarshal vm yaml list - ", err)
+		return err
+	}
+
+	for _, vm := range vmList.Items {
+		l.objectStore.Add(vm)
+	}
+	return nil
+}
+
 func (l *logsHandler) processCombinedVirtualMachineInstanceYAMLs(yamlFile []byte) error {
 
 	dec := yamlv3.NewDecoder(bytes.NewReader(yamlFile))
@@ -441,6 +471,45 @@ func (l *logsHandler) processCombinedVirtualMachineInstanceYAMLs(yamlFile []byte
 		}
 		l.objectStore.Add(&vmi)
 	}
+	return nil
+}
+
+func (l *logsHandler) processVirtualMachineYAMLs() error {
+	// different versions of the must-gather collect the VM yamls differently
+
+	l.handlerLock.Lock()
+	defer l.handlerLock.Unlock()
+
+	//TODO: make path configurable
+	layouts, err := filepath.Glob("/space/namespaces/*/kubevirt.io/virtualmachines/*.yaml")
+	if err != nil {
+		return (err)
+	}
+
+	for _, filename := range layouts {
+		yamlFile, err := ioutil.ReadFile(filename)
+		if err != nil {
+			return err
+		}
+		l.storeVMData(yamlFile)
+	}
+
+	if len(layouts) == 0 {
+
+		combinedYamls, err := filepath.Glob("/space/namespaces/*/kubevirt.io/virtualmachines.yaml")
+		if err != nil {
+			return (err)
+		}
+		for _, filename := range combinedYamls {
+			yamlFile, err := ioutil.ReadFile(filename)
+			if err != nil {
+				return err
+			}
+			l.storeVMListData(yamlFile)
+		}
+	}
+
+	log.Log.Println("finished processing VMI YAMLs")
 	return nil
 }
 
