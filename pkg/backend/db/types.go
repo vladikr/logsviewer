@@ -137,7 +137,6 @@ type (
         InvolvedVirtHandlers []Pod
     }
 
->>>>>>> 2ae3f8b2 (allow storing VirtualMachine types in the database)
     GenericQueryDetails struct {
         UUID      string
         Name      string

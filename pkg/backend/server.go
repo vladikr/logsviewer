@@ -711,6 +711,13 @@ func (c *app) getObjYaml(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	case "vm":
+		retObject, err = c.storeDB.GetVMObject(fmt.Sprintf("%s", UUID))
+		if err != nil {
+			log.Log.Println("failed to fetch vm params", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	case "vmi":
 		retObject, err = c.storeDB.GetVMIObject(fmt.Sprintf("%s", UUID))
 		if err != nil {
