@@ -1219,6 +1219,35 @@ func (d *DatabaseInstance) genericGetPVCs(queryString string) (map[string]interf
     return pvcsList, nil
 }
 
+func (d *DatabaseInstance) GetVMObject(vmUUID string) (*kubevirtv1.VirtualMachine, error) {
+    var content json.RawMessage
+
+    queryString := fmt.Sprintf("select content from vms where uuid = '%s'", vmUUID)
+
+    rows := d.db.QueryRow(queryString)
+    err := rows.Scan(&content)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            log.Log.Println("can't find VMs with this uuid: ", vmUUID)
+            return nil, err
+        } else {
+            log.Log.Println("ERROR: ", err, " for uuid: ", vmUUID)
+            return nil, err
+        }
+    }
+
+    // Unmashal json
+    var vm kubevirtv1.VirtualMachine
+
+    err = json.Unmarshal(content, &vm)
+    if err != nil {
+        log.Log.Fatalln("failed to unmarshal json to vm object - ", err)
+        return nil, err
+    }
+
+    return &vm, nil
+}
+
 func (d *DatabaseInstance) GetVMIObject(vmiUUID string) (*kubevirtv1.VirtualMachineInstance, error) {
     var content json.RawMessage
 
