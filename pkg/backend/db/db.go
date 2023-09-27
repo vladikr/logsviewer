@@ -145,6 +145,39 @@ func (d *DatabaseInstance) StoreNode(node *Node) error {
     return nil
 }
 
+func BoolToString(value bool) string {
+    if value {
+        return "true"
+    }
+    return "false"
+}
+
+func (d *DatabaseInstance) StoreVm(vm *VirtualMachine) error {
+    ctx, cancel := context.WithTimeout(d.ctx, 1*time.Second)
+    defer cancel()
+
+    stmt, err := d.db.PrepareContext(ctx, insertVmQuery)
+    if err != nil {
+        return err
+    }
+    defer stmt.Close()
+
+    _, err = stmt.ExecContext(
+        ctx,
+        vm.Name,
+        vm.Namespace,
+        vm.UUID,
+        BoolToString(vm.Running),
+        BoolToString(vm.Created),
+        BoolToString(vm.Ready),
+        vm.Status,
+        vm.Content)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
 func (d *DatabaseInstance) StoreVmi(vmi *VirtualMachineInstance) error {
     // TimeString - given a time, return the MySQL standard string representation
     madeAt := vmi.CreationTime.Format("2006-01-02 15:04:05.999999")
@@ -259,6 +292,7 @@ func (d *DatabaseInstance) StoreImportedMustGather(img *ImportedMustGather) erro
 
 var (
     insertPodQuery                = `INSERT INTO pods(keyid, kind, name, namespace, uuid, phase, activeContainers, totalContainers, nodeName, creationTime, pvcs, content, createdBy) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE keyid=VALUES(keyid);`
+    insertVmQuery                = `INSERT INTO vms(name, namespace, uuid, running, created, ready, status, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
     insertVmiQuery                = `INSERT INTO vmis(name, namespace, uuid, reason, phase, nodeName, creationTime, content) values (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid);`
     insertVmiMigrationQuery       = `INSERT INTO vmimigrations(name, namespace, uuid, phase, vmiName, targetPod, creationTime, endTimestamp, sourceNode, targetNode, completed, failed, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE uuid=VALUES(uuid), targetPod=VALUES(targetPod), creationTime=VALUES(creationTime), endTimestamp=VALUES(endTimestamp), sourceNode=VALUES(sourceNode), targetNode=VALUES(targetNode), completed=VALUES(completed), failed=VALUES(failed);`
     insertNodeQuery               = `INSERT INTO nodes(name, systemUuid, status, internalIP, hostName, osImage, kernelVersion, kubletVersion, containerRuntimeVersion, content) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name=VALUES(name);`
@@ -354,6 +388,9 @@ func (d *DatabaseInstance) createTables() error {
     if err := d.createNodesTable(); err != nil {
         return err
     }
+    if err := d.createVmsTable(); err != nil {
+        return err
+    }
     if err := d.createVmisTable(); err != nil {
         return err
     }
@@ -393,6 +430,29 @@ func (d *DatabaseInstance) createPodsTable() error {
     );
     `
     err := d.execTable(createPodsTable)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (d *DatabaseInstance) createVmsTable() error {
+
+    vmsTableCreate := `
+    CREATE TABLE IF NOT EXISTS vms (
+      name varchar(100),
+      namespace varchar(100),
+      uuid varchar(100),
+      running varchar(100),
+      created varchar(100),
+      ready varchar(100),
+      status varchar(100),
+      content json,
+      PRIMARY KEY (uuid)
+    );
+    `
+    err := d.execTable(vmsTableCreate)
     if err != nil {
         return err
     }
@@ -1255,6 +1315,26 @@ func (d *DatabaseInstance) GetNodes(page int, perPage int, queryDetails *Generic
     }
     return resultsMap, nil
 }
+
+func (d *DatabaseInstance) GetVms(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
+    queryString := "select uuid, name, namespace, running, created, ready, status from vms"
+
+    if queryDetails != nil {
+        conditions := []string{}
+        if *queryDetails != (GenericQueryDetails{}) {
+            queryString = fmt.Sprintf("%s where ", queryString)
+        }
+
+        queryString = fmt.Sprintf("%s%s", queryString, strings.Join(conditions, " AND "))
+    }
+
+    resultsMap, err := d.genericGet(queryString, page, perPage)
+    if err != nil {
+        return nil, err
+    }
+    return resultsMap, nil
+}
+
 
 func (d *DatabaseInstance) GetVmis(page int, perPage int, queryDetails *GenericQueryDetails) (map[string]interface{}, error) {
     queryString := "select uuid, name, namespace, phase, reason, nodeName, creationTime from vmis"

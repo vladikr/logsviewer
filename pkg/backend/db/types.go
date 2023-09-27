@@ -25,6 +25,17 @@ type (
         CreatedBy        string          `json:"createdBy"`
     }
 
+    VirtualMachine struct {
+        Name         string      `json:"name"`
+        Namespace    string      `json:"namespace"`
+        UUID         string      `json:"uuid"`
+        Running      bool        `json:"running"`
+        Created      bool        `json:"created"`
+        Ready        bool        `json:"ready"`
+        Status       string      `json:"status,omitempty"`
+        Content json.RawMessage  `json:"content"`
+    }
+
     VirtualMachineInstance struct {
         Name         string      `json:"name"`
         Namespace    string      `json:"namespace"`
@@ -126,6 +137,7 @@ type (
         InvolvedVirtHandlers []Pod
     }
 
+>>>>>>> 2ae3f8b2 (allow storing VirtualMachine types in the database)
     GenericQueryDetails struct {
         UUID      string
         Name      string
