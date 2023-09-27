@@ -214,6 +214,52 @@ func (c *app) getNodes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getVmis returns a list of Virtual Machine objects
+func (c *app) getVms(w http.ResponseWriter, r *http.Request) {
+	log.Log.Println("Get Vms Endpoint Hit: ", r.URL.Query())
+	params := map[string]interface{}{}
+	for k, v := range r.URL.Query() {
+		params[k] = v[0]
+	}
+
+	currentPage := 1
+
+	page, err := strconv.Atoi(fmt.Sprint(params["page"]))
+	if err == nil {
+		if page >= 1 {
+			currentPage = page
+		}
+	}
+
+	pageSize := -1
+	perPage, err := strconv.Atoi(fmt.Sprint(params["per_page"]))
+	if err == nil {
+		if perPage >= 1 {
+			pageSize = perPage
+		}
+	}
+
+	queryDetails := db.GenericQueryDetails{}
+	if status, exist := params["status"]; exist {
+		queryDetails.Status = fmt.Sprint(status)
+	}
+
+	data, err := c.storeDB.GetVms(currentPage, pageSize, &queryDetails)
+	if err != nil {
+		log.Log.Println("failed to get VMs!", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
+	w.WriteHeader(200)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err1 := enc.Encode(data); err1 != nil {
+		fmt.Println(err1.Error())
+	}
+}
+
+
 func (c *app) getVmis(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get Vmis Endpoint Hit: ", r.URL.Query())
 	params := map[string]interface{}{}
@@ -892,6 +938,9 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 		if err := logsHandler.processNodeYAMLs(); err != nil {
 			errList = append(errList, err)
 		}
+		if err := logsHandler.processVirtualMachineYAMLs(); err != nil {
+			errList = append(errList, err)
+		}
 		if err := logsHandler.processVirtualMachineInstanceYAMLs(); err != nil {
 			errList = append(errList, err)
 		}
@@ -989,6 +1038,7 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	mux.HandleFunc("/uploadLogs", app.uploadLogs)
 	mux.HandleFunc("/pods", app.getPods)
 	mux.HandleFunc("/nodes", app.getNodes)
+	mux.HandleFunc("/vms", app.getVms)
 	mux.HandleFunc("/vmis", app.getVmis)
 	mux.HandleFunc("/vmims", app.getVmiMigrations)
 	mux.HandleFunc("/getPVCs", app.getPVCs)
