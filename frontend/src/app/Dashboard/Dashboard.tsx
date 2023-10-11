@@ -9,7 +9,21 @@ import {
   CardBody,
   Button,
   List,
-  ListItem, Chip, Grid, GridItem, CardFooter, Icon, Flex, gridSpans, Tooltip, Page, PageSection, Title,
+  Modal,
+  ModalVariant,
+  ListItem,
+  Chip,
+  Grid,
+  GridItem,
+  CardFooter,
+  Icon,
+  gridSpans,
+  Tooltip,
+  Page,
+  PageSection,
+  Title,
+  CodeBlock,
+  CodeBlockCode, SimpleList, SimpleListGroup, SimpleListItem,
 } from "@patternfly/react-core";
 import {apiBaseUrl} from "@app/config";
 import {CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon} from "@patternfly/react-icons";
@@ -47,6 +61,7 @@ const Dashboard: React.FunctionComponent = () => {
   const [pods, setPods] = React.useState<data | undefined>(undefined);
   const [subscriptions, setSubscriptions] = React.useState<data | undefined>(undefined);
   const [importedMustGathers, setImportedMustGathers] = React.useState<data | undefined>(undefined);
+  const [mustGatherInsightData, setMustGatherInsightData] = React.useState<any | undefined>(undefined);
 
   React.useEffect(() => {
     fetch("/getResourceStats", setResourceCount)
@@ -420,9 +435,9 @@ const Dashboard: React.FunctionComponent = () => {
       }
 
       rows = importedMustGathers.data.map((mustGather) => [
-        mustGather.name,
-        new Date(mustGather.gatherTime).toLocaleString(),
-        new Date(mustGather.importTime).toLocaleString(),
+        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{mustGather.name}</span>,
+        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{new Date(mustGather.gatherTime).toLocaleString()}</span>,
+        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{new Date(mustGather.importTime).toLocaleString()}</span>,
       ]);
     }
 
@@ -451,6 +466,68 @@ const Dashboard: React.FunctionComponent = () => {
     )
   }
 
+  const reportTable = (report) => {
+    return (
+      <div className="pf-u-mt-xl">
+        <Title headingLevel="h2" size="md">{report["key"]} ({report["type"]} - {report["component"]})</Title>
+
+        <CodeBlock className="pf-u-mt-sm">
+          <CodeBlockCode id="code-content">{JSON.stringify(report, null, 2)}</CodeBlockCode>
+        </CodeBlock>
+      </div>
+    )
+  }
+
+  const mustGatherInsightsDataModalContent = (data) => {
+    const metadata = data["analysis_metadata"]
+    const plugins = metadata["plugin_sets"]
+
+    return (
+      <>
+        <SimpleList isControlled={false} className="pf-u-mb-xl">
+          <SimpleListGroup title="Analysis Metadata">
+            <SimpleListItem><b>Start:</b> {new Date(metadata["start"]).toLocaleString()}</SimpleListItem>
+            <SimpleListItem><b>Finish:</b> {new Date(metadata["finish"]).toLocaleString()}</SimpleListItem>
+            <SimpleListItem><b>Execution Context:</b> {metadata["execution_context"]}</SimpleListItem>
+          </SimpleListGroup>
+          <SimpleListGroup title="Plugin Sets">
+            <SimpleListItem><b>insights-core:</b> {plugins["insights-core"]["version"]}</SimpleListItem>
+            <SimpleListItem><b>ccx_rules_ocp:</b> {plugins["ccx_rules_ocp"]["version"]}</SimpleListItem>
+            <SimpleListItem><b>ccx_ocp_core:</b> {plugins["ccx_ocp_core"]["version"]}</SimpleListItem>
+          </SimpleListGroup>
+        </SimpleList>
+
+        {data["reports"].map((report) => reportTable(report))}
+      </>
+    )
+  }
+
+  const mustGatherInsightsDataModal = () => {
+    return (
+      <Modal
+        variant={ModalVariant.medium}
+        title="Insights data"
+        isOpen={mustGatherInsightData !== undefined && mustGatherInsightData != null}
+        onClose={() => {
+          setMustGatherInsightData(undefined)
+        }}
+        actions={[
+          <Button variant="link" onClick={() => {
+            setMustGatherInsightData(undefined)
+          }}>
+            Close
+          </Button>
+        ]}
+      >
+        {(mustGatherInsightData !== undefined && mustGatherInsightData !== null) ?
+          mustGatherInsightsDataModalContent(JSON.parse(mustGatherInsightData))
+          :
+          <span>No insights data found</span>
+        }
+      </Modal>
+    )
+  }
+
   return (
     <Page isManagedSidebar>
       <PageSection>
@@ -460,6 +537,8 @@ const Dashboard: React.FunctionComponent = () => {
       </PageSection>
 
       <PageSection>
+        {mustGatherInsightsDataModal()}
+
         <Grid hasGutter>
           {/* line 1 */}
           <GridItem span={6}>{clusterInventoryCard()}</GridItem>

@@ -1,19 +1,23 @@
 package main
 
 import (
-    "flag"
-    "os"
+	"flag"
 
-    . "logsviewer/pkg/backend"
-    "logsviewer/pkg/backend/log"
+	. "logsviewer/pkg/backend"
+	"logsviewer/pkg/backend/log"
 )
+
 func main() {
-    fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-    fs.SetOutput(os.Stdout)
-    log.Log.Println("Starting logsviewer")
-    publicDir := fs.String("public-dir", "./frontend/build/", "directory containing static web assets.")
-    if err := Spawn(*publicDir); err != nil {
-        panic(err)
-    }
-    
+	log.Log.Println("Starting logsviewer")
+
+	publicDir := flag.String("public-dir", "./frontend/build/", "directory containing static web assets.")
+	insightsBinaryPath := flag.String("insights-binary-path", "", "path to the insights-client binary.")
+	flag.Parse()
+
+	log.Log.Printf("public-dir: %s", *publicDir)
+	log.Log.Printf("insights-binary-path: %s", *insightsBinaryPath)
+
+	if spawnErr := Spawn(*publicDir, *insightsBinaryPath); spawnErr != nil {
+		panic(spawnErr)
+	}
 }

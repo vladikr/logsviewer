@@ -30,6 +30,7 @@ type LogsViewer struct {
 	mustGatherFileName string
 	deletionCondition  string
 	deletionDelay      time.Duration
+	insightsBinaryPath string
 
 	kubeconfig     string
 	k8sClient      *kubernetes.Clientset
@@ -85,6 +86,7 @@ func (lg *LogsViewer) setupFlags() (setupCommand, deleteCommand, importCommand, 
 	setupCommand.StringVar(&lg.image, "image", defaultLogsviewerImage, "The LogsViewer image to use")
 	setupCommand.StringVar(&lg.deletionCondition, "deletion-condition", defaultDeletionCondition, "The condition to use for deleting the instance (creation, last-must-gather-upload, never)")
 	setupCommand.DurationVar(&lg.deletionDelay, "deletion-delay", defaultDeletionDelay, "The delay before deleting the instance")
+	setupCommand.StringVar(&lg.insightsBinaryPath, "insights-binary-path", "", "path to the insights-client binary")
 
 	deleteCommand = flag.NewFlagSet("delete", flag.ExitOnError)
 	lg.commonFlags(deleteCommand)
