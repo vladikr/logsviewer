@@ -85,6 +85,10 @@ func (lg *LogsViewer) createTemplateInstance(template *templatev1.Template) (*te
 			Name:  "LOGSVIEWER_IMAGE",
 			Value: lg.image,
 		},
+		{
+			Name:  "INSIGHTS_BINARY_PATH",
+			Value: lg.insightsBinaryPath,
+		},
 	}
 
 	if !contains(deletionConditionOptions, lg.deletionCondition) {

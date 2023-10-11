@@ -281,7 +281,7 @@ objects:
     - name: logsviewer
       image: ${LOGSVIEWER_IMAGE}
       imagePullPolicy: Always
-      command: ["/backend"]
+      command: ["/backend", "-insights-binary-path=${INSIGHTS_BINARY_PATH}"]
       env:
       - name: POD_NAME
         valueFrom:
@@ -363,3 +363,6 @@ parameters:
 - description: LogsViewer image
   value: quay.io/vladikr/logsviewer:devel
   name: LOGSVIEWER_IMAGE
+- description: Insights Binary Path
+  value: ''
+  name: INSIGHTS_BINARY_PATH

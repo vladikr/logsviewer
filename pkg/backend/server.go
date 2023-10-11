@@ -20,6 +20,7 @@ import (
 	"logsviewer/pkg/backend/cleanup"
 	"logsviewer/pkg/backend/db"
 	"logsviewer/pkg/backend/env"
+	"logsviewer/pkg/backend/insights"
 	"logsviewer/pkg/backend/log"
 	"logsviewer/pkg/backend/monitoring/metrics"
 )
@@ -29,7 +30,8 @@ const (
 )
 
 type app struct {
-	storeDB *db.DatabaseInstance
+	storeDB          *db.DatabaseInstance
+	insightsInstance *insights.Insights
 }
 
 func NewAppInstance() (*app, error) {
@@ -38,6 +40,14 @@ func NewAppInstance() (*app, error) {
 		return newAppInstance, err
 	}
 	return newAppInstance, nil
+}
+
+func (c *app) WithInsights(insightsBinaryPath string) {
+	c.insightsInstance = insights.New(insightsBinaryPath)
+}
+
+func (c *app) IsInsightsEnabled() bool {
+	return c.insightsInstance != nil
 }
 
 func (c *app) initStoreDB() error {
@@ -258,7 +268,6 @@ func (c *app) getVms(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err1.Error())
 	}
 }
-
 
 func (c *app) getVmis(w http.ResponseWriter, r *http.Request) {
 	log.Log.Println("Get Vmis Endpoint Hit: ", r.URL.Query())
@@ -928,10 +937,24 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		var insightsData string
+		if c.IsInsightsEnabled() {
+			log.Log.Println("executing insights", "/space")
+			insightsDataRaw, insightsErr := c.insightsInstance.Exec("/space")
+			if insightsErr != nil {
+				log.Log.Println("failed to execute insights", insightsErr)
+			}
+			insightsData = string(insightsDataRaw)
+			fmt.Println("insightsData", insightsData)
+		} else {
+			log.Log.Println("insights is disabled")
+		}
+
 		logsHandler := NewLogsHandler(c.storeDB)
 		defer close(logsHandler.stopCh)
 		var errList []error
-		if err := logsHandler.processImportedMustGather(handler.Filename); err != nil {
+		if err := logsHandler.processImportedMustGather(handler.Filename, insightsData); err != nil {
 			log.Log.Println("failed to store imported must gather", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -1023,13 +1046,17 @@ func createKibanaDataView() {
 	log.Log.Println("response Body:", string(body))
 }
 
-func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
+func SetupRoutes(publicDir *string, insightsBinaryPath string) (*http.ServeMux, error) {
 	verifyFiles()
 	createKibanaDataView()
 	setKibanaDefaultDataView()
 	app, err := NewAppInstance()
 	if err != nil {
 		return nil, err
+	}
+
+	if insightsBinaryPath != "" {
+		app.WithInsights(insightsBinaryPath)
 	}
 
 	// Register metrics in Prometheus
@@ -1068,8 +1095,8 @@ func SetupRoutes(publicDir *string) (*http.ServeMux, error) {
 	return mux, nil
 }
 
-func Spawn(publicDir string) error {
-	mux, err := SetupRoutes(&publicDir)
+func Spawn(publicDir string, insightsBinaryPath string) error {
+	mux, err := SetupRoutes(&publicDir, insightsBinaryPath)
 	if err != nil {
 		return err
 	}

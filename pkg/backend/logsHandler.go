@@ -367,7 +367,7 @@ func (l *logsHandler) storeNodeData(yamlFile []byte) error {
 	return nil
 }
 
-func (l *logsHandler) processImportedMustGather(filename string) error {
+func (l *logsHandler) processImportedMustGather(filename string, insightsData string) error {
 	l.handlerLock.Lock()
 	defer l.handlerLock.Unlock()
 
@@ -377,9 +377,10 @@ func (l *logsHandler) processImportedMustGather(filename string) error {
 	}
 
 	l.objectStore.Add(&db.ImportedMustGather{
-		Name:       filename,
-		ImportTime: time.Now(),
-		GatherTime: gatherTime,
+		Name:         filename,
+		ImportTime:   time.Now(),
+		GatherTime:   gatherTime,
+		InsightsData: insightsData,
 	})
 	return nil
 }
