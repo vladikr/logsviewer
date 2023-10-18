@@ -23,11 +23,11 @@ import {
   PageSection,
   Title,
   CodeBlock,
-  CodeBlockCode, SimpleList, SimpleListGroup, SimpleListItem,
+  CodeBlockCode, SimpleList, SimpleListGroup, SimpleListItem, Alert, ExpandableSection,
 } from "@patternfly/react-core";
 import {apiBaseUrl} from "@app/config";
 import {CheckCircleIcon, ExclamationCircleIcon, ExclamationTriangleIcon} from "@patternfly/react-icons";
-import {Table, TableHeader, TableBody, TableProps, TableVariant} from '@patternfly/react-table';
+import { Table, Thead, Tr, Th, Tbody, Td } from '@patternfly/react-table';
 
 type data = {
   meta: {
@@ -419,26 +419,28 @@ const Dashboard: React.FunctionComponent = () => {
       name: 'File name',
       importTime: 'Import date',
       gatherTime: 'Gather date',
+      insightsData: 'Insights data',
     };
 
-    const columns: TableProps['cells'] = ['File name', 'Gather date', 'Import date'];
+    const insightsIcons = (data) => {
+      const nReports = JSON.parse(data)["reports"].length
 
-    let rows: TableProps['rows'] = [
-      ['Loading...', 'Loading...', 'Loading...'],
-    ];
-
-    if (importedMustGathers !== undefined) {
-      if (importedMustGathers.data.length === 0) {
-        rows = [
-          ['No must-gathers imported', '', ''],
-        ];
+      if (nReports === 0) {
+        return (
+          <Icon status="success" className="pf-u-ml-xs">
+            <CheckCircleIcon />
+          </Icon>
+        )
       }
 
-      rows = importedMustGathers.data.map((mustGather) => [
-        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{mustGather.name}</span>,
-        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{new Date(mustGather.gatherTime).toLocaleString()}</span>,
-        <span onClick={() => setMustGatherInsightData(mustGather.insightsData)}>{new Date(mustGather.importTime).toLocaleString()}</span>,
-      ]);
+      return (
+        <>
+          {nReports}
+          <Icon status="danger" className="pf-u-ml-xs">
+            <ExclamationCircleIcon />
+          </Icon>
+        </>
+      )
     }
 
     return (
@@ -451,13 +453,35 @@ const Dashboard: React.FunctionComponent = () => {
                 <Spinner aria-label="Loading data" />
               </Bullseye>
             ) : (
-              <Table
-                variant={TableVariant.compact}
-                cells={columns}
-                rows={rows}
-              >
-                <TableHeader />
-                <TableBody />
+              <Table aria-label="imported-must-gathers">
+                <Thead>
+                  <Tr>
+                    <Th>{columnNames.name}</Th>
+                    <Th>{columnNames.gatherTime}</Th>
+                    <Th>{columnNames.importTime}</Th>
+                    <Th>{columnNames.insightsData}</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {importedMustGathers.data.map((mustGather) => (
+                    <Tr
+                      key={mustGather.name}
+                      onRowClick={() => setMustGatherInsightData(mustGather.insightsData)}
+                      isSelectable
+                      isHoverable={mustGather.insightsData !== undefined && mustGather.insightsData !== null}
+                    >
+                      <Td dataLabel={columnNames.name}>{mustGather.name}</Td>
+                      <Td dataLabel={columnNames.gatherTime}>{new Date(mustGather.gatherTime).toLocaleString()}</Td>
+                      <Td dataLabel={columnNames.importTime}>{new Date(mustGather.importTime).toLocaleString()}</Td>
+                      <Td dataLabel={columnNames.insightsData}>{
+                          mustGather.insightsData === undefined || mustGather.insightsData === null ?
+                            <span>-</span>
+                          :
+                            insightsIcons(mustGather.insightsData)
+                      }</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
               </Table>
             )
           }
@@ -468,19 +492,24 @@ const Dashboard: React.FunctionComponent = () => {
 
   const reportTable = (report) => {
     return (
-      <div className="pf-u-mt-xl">
-        <Title headingLevel="h2" size="md">{report["key"]} ({report["type"]} - {report["component"]})</Title>
-
+      <ExpandableSection
+        key={report["key"]}
+        className="pf-u-mt-xl"
+        toggleContent={
+          <Alert isInline isPlain variant="danger" title={`[FAIL] ${report["key"]} (${report["type"]} - ${report["component"]})`} ouiaId="DangerAlert" />
+        }
+      >
         <CodeBlock className="pf-u-mt-sm">
-          <CodeBlockCode id="code-content">{JSON.stringify(report, null, 2)}</CodeBlockCode>
+          <CodeBlockCode id="code-content">{JSON.stringify(report["details"], null, 2)}</CodeBlockCode>
         </CodeBlock>
-      </div>
+      </ExpandableSection>
     )
   }
 
   const mustGatherInsightsDataModalContent = (data) => {
     const metadata = data["analysis_metadata"]
     const plugins = metadata["plugin_sets"]
+    const reports = data["reports"]
 
     return (
       <>
@@ -497,7 +526,11 @@ const Dashboard: React.FunctionComponent = () => {
           </SimpleListGroup>
         </SimpleList>
 
-        {data["reports"].map((report) => reportTable(report))}
+        {reports.length === 0 ?
+          <Alert variant="success" title="All rules passed" ouiaId="SuccessAlert" />
+          :
+          reports.map((report) => reportTable(report))
+        }
       </>
     )
   }
@@ -540,9 +573,12 @@ const Dashboard: React.FunctionComponent = () => {
         {mustGatherInsightsDataModal()}
 
         <Grid hasGutter>
+          {/* line 0 */}
+          <GridItem span={12}>{importedMustGathersCard()}</GridItem>
+
           {/* line 1 */}
           <GridItem span={6}>{clusterInventoryCard()}</GridItem>
-          <GridItem span={6}>{importedMustGathersCard()}</GridItem>
+          <GridItem span={6}>{nodesStatusCard()}</GridItem>
 
           {/* line 2 */}
           <GridItem span={6}>{subscriptionsCard()}</GridItem>
@@ -550,7 +586,6 @@ const Dashboard: React.FunctionComponent = () => {
 
           {/* line 3 */}
           <GridItem span={6}>{podsCard()}</GridItem>
-          <GridItem span={6}>{nodesStatusCard()}</GridItem>
         </Grid>
       </PageSection>
     </Page>
