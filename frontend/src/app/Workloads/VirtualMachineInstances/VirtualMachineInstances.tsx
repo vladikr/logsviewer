@@ -117,12 +117,14 @@ const VirtualMachineInstances: React.FunctionComponent = () => {
                 const hostnameParts = hostname.split('.');
                 const ingress = hostnameParts.slice(1).join('.');
                 const appNameParts = hostnameParts.slice(0, 1)[0].split('-');
+                let prefix = ""
                 let suffix = ""
                 if (appNameParts.length > 1) {
-                    suffix = "-" + appNameParts.slice(1);
+                    prefix = appNameParts[0] + "-";
+                    suffix = "-" + appNameParts.slice(2);
                 }
-                const kibanaHostname = "kibana" + suffix + "." + ingress;
-                
+                const kibanaHostname = prefix + "kibana" + suffix + "." + ingress;
+
                 window.open(`http://${kibanaHostname}/app/discover#/?${resp.data.dslQuery}`, '_blank', 'noopener,noreferrer');
                 return {
                     query: resp.data.dslQuery, 

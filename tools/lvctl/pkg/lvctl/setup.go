@@ -57,7 +57,7 @@ func (lg *LogsViewer) setup() {
 		klog.Exit("failed to get route: ", err)
 	}
 
-	klog.Infof("logsViewer %s is available at %s", lg.instanceID, route.Status.Ingress[0].Host)
+	klog.Infof("logsViewer %s is available at https://%s", lg.instanceID, route.Status.Ingress[0].Host)
 	klog.Infof("logsViewer %s setup complete", lg.instanceID)
 }
 
@@ -76,6 +76,10 @@ func (lg *LogsViewer) createTemplateInstance(template *templatev1.Template) (*te
 		{
 			Name:  "SUFFIX",
 			Value: lg.instanceID,
+		},
+		{
+			Name:  "NAMESPACE",
+			Value: lg.namespace,
 		},
 		{
 			Name:  "STORAGE_CLASS",
