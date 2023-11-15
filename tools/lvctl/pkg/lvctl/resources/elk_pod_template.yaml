@@ -38,7 +38,7 @@ objects:
   metadata:
     name: logsviewer-${SUFFIX}
   spec:
-    subdomain: logsviewer-${SUFFIX}
+    subdomain: ${NAMESPACE}-logsviewer-${SUFFIX}
     port:
       targetPort: 8080
     tls:
@@ -52,7 +52,7 @@ objects:
   metadata:
     name: kibana-${SUFFIX}
   spec:
-    subdomain: kibana-${SUFFIX}
+    subdomain: ${NAMESPACE}-kibana-${SUFFIX}
     port:
       targetPort: 5601
     tls:
@@ -357,6 +357,9 @@ parameters:
   from: '[a-z0-9]{6}'
   generate: expression
   name: SUFFIX
+- description: Namespace to deploy to
+  value: ''
+  name: NAMESPACE
 - description: Storage class to use
   value: ocs-storagecluster-ceph-rbd
   name: STORAGE_CLASS
