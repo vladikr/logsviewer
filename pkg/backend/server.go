@@ -932,7 +932,7 @@ func (c *app) uploadLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mime := handler.Header.Get("Content-Type")
-	if mime == "application/gzip" || mime == "application/x-gzip" {
+	if mime == "application/gzip" || mime == "application/x-gzip" || mime == "application/x-compressed-tar" {
 		if err := handleTarGz(destinationFilePath, "/space"); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
