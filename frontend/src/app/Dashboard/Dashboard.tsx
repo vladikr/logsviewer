@@ -463,7 +463,8 @@ const Dashboard: React.FunctionComponent = () => {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {importedMustGathers.data.map((mustGather) => (
+                  {importedMustGathers.data.map((mustGather) => {
+                      return (
                     <Tr
                       key={mustGather.name}
                       onRowClick={() => setMustGatherInsightData(mustGather.insightsData)}
@@ -474,13 +475,13 @@ const Dashboard: React.FunctionComponent = () => {
                       <Td dataLabel={columnNames.gatherTime}>{new Date(mustGather.gatherTime).toLocaleString()}</Td>
                       <Td dataLabel={columnNames.importTime}>{new Date(mustGather.importTime).toLocaleString()}</Td>
                       <Td dataLabel={columnNames.insightsData}>{
-                          mustGather.insightsData === undefined || mustGather.insightsData === null ?
+                          mustGather.insightsData === undefined || mustGather.insightsData === null || mustGather.insightsData === "" ?
                             <span>-</span>
                           :
                             insightsIcons(mustGather.insightsData)
                       }</Td>
                     </Tr>
-                  ))}
+                  )})}
                 </Tbody>
               </Table>
             )
