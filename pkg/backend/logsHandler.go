@@ -401,10 +401,17 @@ func getMustGatherTimestamp() (time.Time, error) {
 
 func timestampStringToTime(timestamp string) (time.Time, error) {
 	const layout = "2006-01-02 15:04:05.999999999 -0700 MST m=+0.000000000"
+	const layoutNoMono = "2006-01-02 15:04:05.999999999 -0700 MST"
 
 	t, err := time.Parse(layout, timestamp)
 	if err != nil {
-		return time.Time{}, err
+        // remove the monolithic offset if we can't parse it
+        parts := strings.Split(timestamp, " m=")
+        
+        t, err = time.Parse(layoutNoMono, parts[0])
+        if err != nil {
+            return time.Time{}, err
+        }
 	}
 
 	return t, nil
