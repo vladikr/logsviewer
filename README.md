@@ -87,3 +87,7 @@ As it is today, relevant Virtual Machine logs can be only collected for the whol
 The service consumes compressed must-gathers. 
 This is the entry point for any operation.
 Head to the `Import` tab in the logsviewer UI to upload the logs.
+
+## Demo
+
+[logsviewerNew.webm](https://github.com/vladikr/logsviewer/assets/1035064/0a71f97e-b5c7-45b4-8a21-262c0a40806f)
