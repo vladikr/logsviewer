@@ -1,16 +1,17 @@
-# Troubleshooting as a serivce
+# Troubleshooting as a service
 
-LogsViewer aims to facilitate the troubleshooting of OpenShift Virtualization.
-In the future the service can be extended and generalized.
+LogsViewer aims to facilitate the troubleshooting of Kubernetes, OpenShift and related operators.
 
-## Main flow
-The service operates on collected system logs file.
-All imported log files will be streamed into an integrated instance of elasticsearch.
-
-The service provides a UI to reflect the relevant stored objects, such as Virtual Machines (Instances), Pods, Migration Objects, Nodes, etc. 
+## Goal
+The service provides a UI to reflect the relevant stored objects, such as Pods, Migration Objects, Nodes, Virtual Machines (Instances), etc.
 Selecting an object will generate a focused query for kibana/ elasticsearch to presents the logs of all relevant components which are related to this object.
+
 For example, selecting a Virtual Machine Instance will generate a query that will include the associated virt-launcher, relevant virt-handler and virt-controller and virt-api.
 The query will be bound by the Virtual Machine lifecycle timeline.
+
+All imported log files will be streamed into an integrated instance of elasticsearch.
+
+The service operates on compressed collected must-gather files, but can be extended to work also with cluster dump or connect to a live cluster.
  
 ## Running the service
 
@@ -21,15 +22,12 @@ information and custom configurations about the lvctl command, head to the
 ### Get a lvctl binary
 
 ```bash
-  # To get the latest released lvctl binary
-  LATEST_TAG=$(curl https://api.github.com/repos/kubevirt/kubevirt/releases/latest | grep -i "tag_name" | awk -F '"' '{print $4}')
-  wget https://github.com/vladikr/logsviewer/releases/download/${LATEST_TAG}/lvctl
-  chmod +x lvctl
-  
-  # Or to build the lvctl binary from source
-  make build -C tools/lvctl/
-  cp tools/lvctl/bin/lvctl . 
+	$ git clone https://github.com/vladikr/logsviewer
+	$ cd logsviewer/
+	$ make build -C tools/lvctl/
+	$ mv tools/lvctl/bin/lvctl /usr/local/bin/
 ```
+
 
 ### Create an instance of the LogsViewer
 
@@ -52,41 +50,30 @@ LogsViewer UI.
 ### Import a new must-gather file into an instance of the LogsViewer
 
 ```bash
-  ./lvctl import -id <instance-id> -file <path-to/must-gather-file.tar.gz>
+  ./lvctl setup-import -namespace <namespace> -id <customer-case-id> -file <path-to/must-gather-file.tar.gz>
 ```
 
-### Delete an instance of the LogsViewer
+### Import Additional Must Gather files to the same Logsviewer instance
+```bash
+  ./lvctl import -namespace <namespace> -id <instance-id> -file <path-to/must-gather-file.tar.gz>
+```
+
+*Note:*
+  - You can upload more than one Must Gather to the same Logsviewer instance for the same cluster.
+  - You can upload both OpenShift and other Must gathers for the same cluster.
+  - No need to worry about deleting the pods - They will be deleted after 48 hours automatically.
+
+### Manually delete an instance of the LogsViewer
 
 ```bash
-  ./lvctl delete -id <instance-id>
+  ./lvctl delete  -namespace <namespace> -id <customer-case-id>
+
 ```
 
-## Routes
+### Log into the Logsviewer Pod UI
+The UI link would be:
+http://logsviewer-<namespace><instance-id>.apps.cnv2.engineering.redhat.com/
 
-## Collecting system logs
-
-- Control plane logs
-
-The relevant Openshift Virtualization logs can be collected using the following command.
-However, this will not collect `any` Virtula Machines logs
-
-```bash
-  $ oc adm must-gather --image=registry.redhat.io/container-native-virtualization/cnv-must-gather-rhel8:v4.11.0
-```
-
-- Virtual Machine logs
-
-As it is today, relevant Virtual Machine logs can be only collected for the whole namespace where virtual machines are running.
-
-```bash
- oc adm must-gather -n [Namespace where Virtual Machines run]
-```
-
-## Import logs
-
-The service consumes compressed must-gathers. 
-This is the entry point for any operation.
-Head to the `Import` tab in the logsviewer UI to upload the logs.
 
 ## Demo
 
