@@ -12,6 +12,8 @@ The query will be bound by the Virtual Machine lifecycle timeline.
 All imported log files will be streamed into an integrated instance of elasticsearch.
 
 The service operates on compressed collected must-gather files, but can be extended to work also with cluster dump or connect to a live cluster.
+
+Logsviewer also run insights rules to detect known issues and reports them if identified.
  
 ## Running the service
 
@@ -28,30 +30,18 @@ information and custom configurations about the lvctl command, head to the
 	$ mv tools/lvctl/bin/lvctl /usr/local/bin/
 ```
 
-
 ### Create an instance of the LogsViewer
-
 ```bash
   # To deploy LogsViewer in the current namespace with default configuration
   ./lvctl setup
 
   # Or if you want to import a must-gather file into the LogsViewer during the setup
-  ./lvctl setup-import -file <path-to/must-gather-file.tar.gz>
+  ./lvctl setup-import -namespace <namespace> -id <instance-id> -file <path-to/must-gather-file.tar.gz>
 ```
 
-This commands will log the instance id and the route created to access the
-LogsViewer UI.
+This commands will log the the route created to access the LogsViewer UI.
 
-> **Warning**
-> By default, the instance will be deleted 48 hours after the last must-gather
-> file was imported. Or after creation time if no must-gather file was imported.
-> Check the '-deletion-condition' and '-deletion-delay' flags for more details.
-
-### Import a new must-gather file into an instance of the LogsViewer
-
-```bash
-  ./lvctl setup-import -namespace <namespace> -id <customer-case-id> -file <path-to/must-gather-file.tar.gz>
-```
+*Note:* It is possible to import the files manually through the UI after the instance was created.
 
 ### Import Additional Must Gather files to the same Logsviewer instance
 ```bash
@@ -61,18 +51,17 @@ LogsViewer UI.
 *Note:*
   - You can upload more than one Must Gather to the same Logsviewer instance for the same cluster.
   - You can upload both OpenShift and other Must gathers for the same cluster.
-  - No need to worry about deleting the pods - They will be deleted after 48 hours automatically.
+  - By default, the instance will be deleted 48 hours after the last must-gather file was imported. Or after creation time if no must-gather file was imported. Check the '-deletion-condition' and '-deletion-delay' flags for more details.
 
 ### Manually delete an instance of the LogsViewer
 
 ```bash
-  ./lvctl delete  -namespace <namespace> -id <customer-case-id>
-
+  ./lvctl delete  -namespace <namespace> -id <instance-id>
 ```
 
 ### Log into the Logsviewer Pod UI
 The UI link would be:
-http://logsviewer-<namespace><instance-id>.apps.cnv2.engineering.redhat.com/
+http://logsviewer-<namespace><instance-id>.example.com
 
 
 ## Demo
