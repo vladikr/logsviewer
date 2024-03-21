@@ -13,7 +13,7 @@ All imported log files will be streamed into an integrated instance of elasticse
 
 The service operates on compressed collected must-gather files, but can be extended to work also with cluster dump or connect to a live cluster.
 
-Logsviewer also run insights rules to detect known issues and reports them if identified.
+Logsviewer also runs insights rules to detect known issues and reports them if identified.
  
 ## Running the service
 
